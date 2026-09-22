@@ -334,8 +334,7 @@ NutritionMod/
         │       ├── Nutri_Diseases.lua   -- 7 疾病判定/症状/恢复
         │       ├── Nutri_Exercise.lua   -- 运动消耗（按秒 + 瞬时动作）
         │       └── Nutri_Growth.lua     -- 长期成长 + 体重联动
-        └── scripts/
-            └── foods_nutrition.txt      -- 备选：脚本式食物营养定义（可选）
+        └── scripts/            -- 第一版不使用；营养定义唯一来源为 Nutri_DataLayer.lua（见 4.1）
 ```
 
 ### 5.2 事件挂接表
