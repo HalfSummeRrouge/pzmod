@@ -47,7 +47,7 @@
 
 ### 3.1 最终目录（对设计文档 §5.1 的修正版）
 
-设计文档把 `Diseases/Exercise/Growth` 放在 `lua/server/`。**该方案在单机下不成立**：百科加载表明确指出，`server` 文件夹在单机模式**不加载**（仅多人服务器加载），而本 MOD 单机优先。因此**全部结算逻辑放 `shared`**，UI 放 `client`，`server` 目录第一版不使用（仅在需要联机权威时启用）。
+设计文档把 `Diseases/Exercise/Growth` 放在 `lua/server/`。经查 B42.20 源码加载逻辑：`server/` 在单机**进入世界时也会加载**（`GameLoadingState.enter()` 调用 `LuaManager.LoadDirBase("server")`，见 §3.2），并非"单机不加载"；但其时机**晚于** `shared` 的初始加载——游戏启动阶段（主菜单前）的无参 `LoadDirBase()` 只加载 shared 与 client。结算逻辑需要在最早时机可用且三种模式一致，因此**全部结算逻辑放 `shared`**，UI 放 `client`，`server` 目录第一版不使用（仅在需要联机权威时启用）。
 
 ```
 NutritionMod/
@@ -65,7 +65,7 @@ NutritionMod/
             │       ├── Nutri_Exercise.lua     -- 按秒消耗 + 瞬时动作挂接
             │       ├── Nutri_Diseases.lua     -- 7 疾病状态机
             │       ├── Nutri_Growth.lua       -- 短期耐力修正 + 长期成长 + 体重联动
-            │       └── Nutri_EatHook.lua      -- 进食事件挂接（OnEat 脚本回调）
+            │       └── Nutri_EatHook.lua      -- 进食挂接（包装 ISEatFoodAction / ISDrinkFluidAction）
             └── client/                  -- 单机与多人客户端加载
                 └── Nutri/
                     ├── Nutri_Keybind.lua      -- 快捷键注册/监听
@@ -82,18 +82,18 @@ NutritionMod/
 - `media/scripts/` 不使用：营养数据唯一来源是 `Nutri_DataLayer.lua`（与设计 §4.1 一致），不新增物品。
 - 翻译走百科 Translation 约定：后续新增 `media/lua/shared/Translate/CN/UI_Nutri.txt`（第一版可先用中文字面量，但 UI 字符串集中到 `Nutri_Config.lua` 的 `L10N` 段以便迁移）。
 
-### 3.2 `lua` 三类文件夹加载时机（百科原表）
+### 3.2 `lua` 三类文件夹加载时机（B42.20 源码核实）
 
 | 文件夹 | 单人模式 | 多人客户端 | 多人服务器 |
 |---|---|---|---|
-| `client` | ✅ | ✅ | ❌ |
-| `server` | ❌ | ❌ | ✅（仅读档时加载） |
-| `shared` | ✅ | ✅ | ✅ |
+| `client` | ✅（启动阶段） | ✅（启动阶段） | ❌ |
+| `server` | ✅（进入世界时） | ✅（进入世界时） | ✅（读档时加载） |
+| `shared` | ✅（启动阶段） | ✅（启动阶段） | ✅（读档时加载） |
 
-加载顺序（客户端）：原版 shared → MOD shared → 原版 client → MOD client。
+加载分两个阶段：游戏启动（主菜单阶段）无参 `LoadDirBase()` 依次加载 shared → client；进入世界时 `GameLoadingState.enter()` 补充 `LoadDirBase("server")`。MOD 文件的加载顺序为：原版 shared → MOD shared → 原版 client → MOD client。
 由此得出两个硬约束：
 
-1. 所有结算/状态代码放 `shared`，否则单机跑不起来。
+1. 所有结算/状态代码放 `shared`：保证最早可用且三种模式一致（`server/` 加载晚、`client/` 不上专用服务器）。
 2. client 代码可以引用 shared 中定义的全局表（`Nutri`），反向禁止。
 
 ### 3.3 `mod.info`
@@ -122,8 +122,8 @@ pack=
 
 | # | 设计文档假设 | B42.20 实际 | 本 MOD 对策 |
 |---|---|---|---|
-| K1 | §4.2 挂接 `Events.OnEatFood` | **B42 不存在 `OnEatFood` 事件**（Umbrella 事件库无此事件；`IsoGameCharacter.Eat()` 也不触发任何进食 Event） | 改用**食物脚本 `OnEat` 回调**批量挂接，见 §7.1。`Events.OnEat` 亦非原版事件（第三方 MOD 的防御性写法），不使用 |
-| K2 | §5.1 结算逻辑放 `server/` | `server/` 单机不加载（§3.2） | 全部放 `shared/` |
+| K1 | §4.2 挂接 `Events.OnEatFood` | **B42 不存在 `OnEatFood` 事件**（Umbrella 事件库无此事件；`IsoGameCharacter.Eat()` 也不触发任何进食 Event） | 以**包装进食 TimedAction**（`ISEatFoodAction`/`ISDrinkFluidAction`）为主、实例 `OnEat` 字段为辅，见 §7.1。`Events.OnEat` 亦非原版事件（第三方 MOD 的防御性写法），不使用 |
+| K2 | §5.1 结算逻辑放 `server/` | `server/` 单机虽在进入世界时加载，但时机晚于 shared 初始加载（§3.2） | 全部放 `shared/`，保证最早可用、三模式一致 |
 | K3 | §6.1 用 luajit 做测试运行时 | PZ 内嵌 Kahlua（Lua 5.1 语法） | 只用 Lua 5.1 通用语法；本地解释器任选 |
 | K4 | §4.6.3 直接 `stats:setEndurance()` | B42 `Stats` 改为枚举容器：`stats:get/set(CharacterStat.X, v)`，旧 `setEndurance/setFatigue` 已无 | 统一走 `CharacterStat`，见 §7.4 |
 | K5 | §4.4.4 `AddXP(Perks.Fitness, delta)` | API 仍在，签名 `XP:AddXP(PerkFactory.Perk, float)`；但最简重载**只对本地玩家生效**，且负增量需实测 | 用静默重载、做 delta 钳制与实测，见 §7.5 |
@@ -135,7 +135,7 @@ pack=
 | 事件 | 回调签名 | 触发说明 | 本 MOD 用途 |
 |---|---|---|---|
 | `OnInitGlobalModData` | `fun(newGame:boolean)` | Sandbox 选项加载后最早事件 | 不使用（第一版只用玩家 modData）；多人版在此初始化全局表 |
-| `OnCreatePlayer` | `fun(playerIndex:integer, player:IsoPlayer)`（客户端） | 本地玩家载入世界 | 初始化玩家 modData、批量挂接 OnEat 食物钩子（幂等） |
+| `OnCreatePlayer` | `fun(playerIndex:integer, player:IsoPlayer)`（客户端） | 本地玩家载入世界 | 初始化玩家 modData、安装进食 TimedAction 包装（幂等，§7.1） |
 | `OnNewGame` | `fun(player:IsoPlayer, square:IsoGridSquare)`（客户端） | 角色首次创建 | 与 OnCreatePlayer 共用初始化函数 |
 | `OnGameStart` / `OnLoad` | `fun()`（客户端） | 进入游戏完成 | 注册 UI、恢复疾病症状 hook |
 | `OnTick` | `fun(tick:number)` | 每游戏帧 | **不挂重逻辑**（性能） |
@@ -158,9 +158,9 @@ pack=
 | API | 签名 | 备注 |
 |---|---|---|
 | `IsoGameCharacter:Eat` | `boolean Eat(InventoryItem info, float percentage, boolean useUtensil)` | 原版内部按 `food.getCalories() * percentage` 增加玩家 Nutrition；`percentage` 为本次吃掉的比例（0–1，1=整份） |
-| 脚本 OnEat 回调 | `function(info: InventoryItem, player: IsoGameCharacter, percentage: number)` | Eat 流程内 `LuaManager` 以 `pcallvoid` 调用；钩子名来自食物脚本 `OnEat` 字符串字段 |
-| 脚本枚举 | `ScriptManager.instance():getAllItems(): ArrayList<Item>` | B42 已核实；返回脚本对象（`zombie.scripting.objects.Item`，含 `onEat` 字段） |
-| 脚本钩子 | `item:getOnEat()` / `item:setOnEat(string)` | 脚本 `Item` 与实例 `Food` 均有此方法；对脚本对象设置即全局生效 |
+| 实例 OnEat 回调 | `function(info: InventoryItem, player: IsoGameCharacter, percentage: number)` | Eat 流程内 `LuaManager` 以 `pcallvoid` 调用；钩子名来自 **Food / DrainableComboItem 实例**的 `onEat` 字符串字段（脚本解析时由脚本对象的 private `onEat` 字段同步而来） |
+| 脚本枚举 | `ScriptManager.instance():getAllItems(): ArrayList<Item>` | B42 已核实；返回脚本对象（`zombie.scripting.objects.Item`，其 `onEat` 为 private 字段，不可直接挂接，见下） |
+| OnEat 访问器 | `food:getOnEat()` / `food:setOnEat(string)` | **仅实例提供**：`Food` 与 `DrainableComboItem` 实例有此二方法；脚本对象 `Item` 无 getter/setter，不能在启动期对脚本对象设置（详见 §7.1） |
 | 实例营养 | `food:getCalories() / getCarbohydrates() / getLipids() / getProteins() : float` | 均为**整份物品**基准（非每 100g） |
 | 实例重量 | `food:getActualWeight(): float` | 已随使用比例（usedDelta）折算的当前重量；`getWeight()` 在有 ReplaceOnUse 时等同 actual |
 | 其他 | `getFoodType():string`、`getHungerChange()`、`getThirstChange()`、`getFullType():string`（如 `"Base.CannedBolognese"`） | 类型识别/兜底用 |
@@ -169,7 +169,7 @@ pack=
 
 | API | 签名/语义 |
 |---|---|
-| `player:getNutrition()` | `zombie.characters.BodyDamage.Nutrition`，方法：`getCalories/setCalories(float)`、`getCarbohydrates/setCarbohydrates(float)`、`getProteins/setProteins(float)`、`getLipids/setLipids(float)`、`getWeight():double / setWeight(double)`、`isIncWeight()/setIncWeight(bool)`、`isDecWeight()/setDecWeight(bool)`、`canAddFitnessXp():boolean`、`update()` |
+| `player:getNutrition()` | 定义于 **`IsoPlayer`**（`IsoGameCharacter` 无此方法）；返回 `zombie.characters.BodyDamage.Nutrition`，方法：`getCalories/setCalories(float)`、`getCarbohydrates/setCarbohydrates(float)`、`getProteins/setProteins(float)`、`getLipids/setLipids(float)`、`getWeight():double / setWeight(double)`、`isIncWeight()/setIncWeight(bool)`、`isDecWeight()/setDecWeight(bool)`、`canAddFitnessXp():boolean`、`update()` |
 | `player:getXp()` | 内部类 `IsoGameCharacter.XP`，见 §7.5 |
 | `player:getStats()` | B42 `zombie.characters.Stats`（枚举容器），见下 |
 | `player:getBodyDamage()` | `BodyDamage`；身体部位 `BodyPart:ReduceHealth(float)`（B42 血量 0–100，内部已 clamp） |
@@ -197,7 +197,7 @@ pack=
 public void AddXP(PerkFactory.Perk type, float amount)
 // 内部转调 AddXP(type, amount, true, true, false)，且仅对 isLocalPlayer() 生效
 public void AddXP(PerkFactory.Perk type, float amount, boolean noMultiplier, boolean haloText)
-// 6 参重载：(type, amount, p3, useMultiplier, p5, haloText)
+// 6 参重载：(type, amount, callLua, doXPBoost, remote, haloText)
 ```
 
 - Perk 访问：`PerkFactory.Perks.Fitness`、`PerkFactory.Perks.Strength`。
@@ -287,7 +287,7 @@ client: Nutri_Keybind ──开关──> UI
 2. **启动阶段**（`Nutri_Core.lua` 末尾或独立 bootstrap 段挂 `Events.OnCreatePlayer`）：
    `OnCreatePlayer(playerIndex, player)` 时幂等执行：
    - `Nutri.Data.ensurePlayer(player)`：建/迁移 modData 结构（§6.3）；
-   - `Nutri.EatHook.install()`：批量给脚本食物装 OnEat 钩子（全局只装一次）；
+   - `Nutri.EatHook.install()`：包装进食 TimedAction（`ISEatFoodAction` / `ISDrinkFluidAction`，全局只装一次、可重入，§7.1）；
    - `Nutri.Exercise.attach(player)` / `Nutri.Diseases.attach(player)`：恢复症状修饰器；
    - client 侧 `Nutri.UI.init()`（UI 文件在 client 加载，后于 shared）。
 
@@ -380,7 +380,55 @@ Nutri.Config = {
 }
 ```
 
-### 6.5 食物营养表（`Nutri_DataLayer.lua`）
+### 6.5 存档兼容契约（MOD 迭代时保住存档）
+
+玩家 modData 由引擎 [IsoObject.save](file:///d:/project/Zedema/zombie/iso/IsoObject.java#L1465-L1467) 写入玩家存档文件、读档时 [IsoObject.load](file:///d:/project/Zedema/zombie/iso/IsoObject.java#L1245-L1249) 恢复，**与 MOD 是否启用无关**：禁用/卸载 MOD 不会损坏基础存档，Nutri 数据作为不透明表保留，重新启用即还原。本契约约束数据结构与迁移逻辑，使 MOD 在升级、降级、禁用-重启用三种场景下都不破坏存档。
+
+**6.5.1 引擎序列化约束（硬事实，编码时必须遵守）**
+
+- 落盘类型白名单（[TableNetworkUtils.canSave](file:///d:/project/Zedema/zombie/network/TableNetworkUtils.java#L181-L183)）：键只能是 string / number；值只能是 string、number、boolean、嵌套 KahluaTable（以及 InventoryItem、IsoDirections 枚举，本 MOD 不存）。
+- 其他类型（**function、Java 对象、userdata、nil**）保存时被**静默丢弃**，不报错。→ 绝不存函数/Java 对象；存 nil 的键读回会消失，用默认值补齐。
+- 所有 number 读回均为 **Double**（[TableNetworkUtils.load](file:///d:/project/Zedema/zombie/network/TableNetworkUtils.java#L120-L121)）。→ 整数语义的字段（`schema`、`level`、游戏日序号、`lastSettleDay`）落盘前 `math.floor`。
+- 表序列化按 KahluaTable 递归保存，嵌套深度无硬限但避免过深；数组用连续整数键，避免"孔洞"。
+
+**6.5.2 迁移规则（MOD 升级）**
+
+- 每个存档带 `schema` 整数（当前 v1），`migrate(state)` 内 `while state.schema < CURRENT_SCHEMA do` 链式升级，每步只升 1。
+- 单步迁移必须**幂等**（重复执行结果相同），且**只加键、不删键、不改已有键的语义**；要改语义就新建键，旧键保留并标记 `_deprecated`。
+- 迁移前把旧表完整 `Nutri.log("migrate-before", ...)` 打 INFO 日志；每步迁移用 `pcall` 包裹，失败时**中止迁移**（不继续升更高版本）、保留旧 `schema`，并 `print` 警告——**任何情况下都不允许 wipe 根表 `md["Nutri"]`**。
+- 迁移前快照旧表到 `state` 之外的局部变量，失败时可回滚；成功后再写 `state.schema = newVersion`。
+
+**6.5.3 降级兼容（玩家回退旧版本 MOD）**
+
+- 旧版本读到 `schema > 自身支持的最高版本` 时：**只告警，不重置**。
+- 旧版本的 `migrate` 因 `schema >= CURRENT` 不执行；旧版本代码只读取它认识的键，忽略未知键。
+- 这要求所有版本都"对未知键宽容"：读任何字段前先判存在、给默认值，禁止假设 schema=N 时代的全部键都在。
+
+**6.5.4 禁用-重启用兼容（中途卸载 MOD）**
+
+- 期间 Nutri 事件不触发，数据冻结；重新启用后：
+  - **每日结算空档不补算**：`lastSettleDay` 与当前游戏日差 >1 时，缺失日期记为"无数据"，不虚构摄入/消耗；历史队列照常滚动。
+  - **疾病计时只按实际游戏日增量**推进（`deficitDays` / `recoverDays`），不按日历天数。
+  - **修饰器重算**：症状 `applied` 是纯派生值（§7），重启用时 `Diseases.attach` 全量重算并应用，不依赖存档里的 `applied` 残留。
+  - 进食/消耗即时数据（`intakeToday`/`burnToday`）若跨游戏日残留，由 EveryDays 按 `lastSettleDay` 触发一次结算后清零。
+
+**6.5.5 数据结构演进约束**
+
+- 疾病 id、症状 id、`getFoodType()` 分类名一旦发布**不得改名**；改名等价于旧存档的该字段失效。新增只追加。
+- `history` 只存**数字净额**（不存食物全名、不存疾病对象），保证历史数据跨版本自洽。
+- `disease[].applied` 存症状修饰的"描述性键+数值"，`detach` 时对未知键**跳过并 pcall 容错**，不因旧修饰残留崩溃。
+- 嵌套表缺键合并走**叶子级默认值**（递归 merge），不只补顶层表，避免读到 nil 子键。
+
+**6.5.6 发布前强制检查**
+
+每次发版前必须实测两个方向：
+
+1. **升档**：用 v1 旧档（含历史、疾病、成长）加载 v2 代码，确认 `schema` 自动升级、数据无损、日志无 migrate 异常。
+2. **降档**：用 v2 存档加载 v1 旧代码，确认不崩、不 wipe、未知键被忽略。
+
+两个方向通过才能发布，列入 M1 验收（§15）。
+
+### 6.6 食物营养表（`Nutri_DataLayer.lua`）
 
 - 表结构与设计 §4.1.1 完全一致（每 100g，细项字段齐全）。
 - 键统一用**物品全名**（`Food:getFullType()`，如 `Base.CannedBolognese`）。
@@ -402,55 +450,91 @@ end
 
 ### 7.1 进食摄入（`Nutri_EatHook.lua` + `Nutri_Core.lua`）
 
-**问题**：B42 无进食事件（§4.1-K1）。原版 `IsoGameCharacter:Eat(info, percentage, useUtensil)` 在应用营养后，若食物脚本字段 `OnEat` 非空，则以 `(info, player, percentage)` 调用对应具名 Lua 函数。
+**问题**：B42 无进食事件（§4.1-K1）。进一步源码核实还发现：脚本对象 `zombie.scripting.objects.Item` 的 `onEat` 是 **private 字段、无 `getOnEat/setOnEat` 方法**，不能在启动期对脚本对象批量注入（早期方案不可行）。实际可挂的点有两处：
 
-**方案：启动期给所有食物脚本注入同一个 OnEat 钩子，并保留原链。**
+1. 玩家进食/饮用都经 TimedAction：`ISEatFoodAction`（吃食物、喝瓶装饮品）与 `ISDrinkFluidAction`（B42 流体容器，碗/锅装汤等）；二者在动作完成时调用 `character:Eat(...)` / `character:DrinkFluid(...)`。
+2. **实例** `Food` 与 `DrainableComboItem` 提供 `getOnEat()/setOnEat()`，可对已生成实例挂钩。
+
+**方案：路径①（首选）包装进食 TimedAction，保留原链、幂等可重入；路径②（备选补充）实例 OnEat 挂钩，R1 实测后启用。**
 
 ```lua
--- 全局具名函数（OnEat 字段按名字查找，必须是全局可寻址）
-function Nutri_OnFoodEaten(info, player, percentage)
-    -- 1) 先执行原脚本链（若该食物原本有 OnEat）
-    local chain = Nutri.EatHook.prev[info:getFullType()]
-    if chain then pcall(_G[chain], info, player, percentage) end
-    -- 2) 营养记账
-    if instanceof(info, "Food") and percentage and percentage > 0 then
-        Nutri.Core.onEat(info, player, percentage)
+-- ============================================================
+-- 路径①：TimedAction 包装
+-- ============================================================
+
+-- (1) 吃食物 / 瓶装饮品
+function Nutri.EatHook.hookEatFoodAction()
+    local cls = ISEatFoodAction
+    if not cls or cls.__nutriHooked then return end
+
+    -- 整份吃完：complete() 内调用 character:Eat(item, percentage, useUtensil)
+    local origComplete = cls.complete
+    cls.complete = function(self)
+        local preWeight = self.item:getActualWeight()  -- Eat 前整份重量
+        local ok = origComplete(self)                  -- 原版 Eat 在此执行
+        if ok ~= false then
+            Nutri.Core.onEat(self.item, self.character, self.percentage, preWeight)
+        end
+        return ok
     end
+
+    -- 分次进食：大份食物循环吃，Eat 入参为本轮比例
+    local origEat = cls.eat
+    cls.eat = function(self, food, percentage)
+        local preWeight = self.item:getActualWeight()
+        origEat(self, food, percentage)
+        Nutri.Core.onEat(self.item, self.character, self.percentage * percentage, preWeight)
+    end
+
+    cls.__nutriHooked = true
+end
+
+-- (2) B42 流体饮用：updateEat() 内调用 character:DrinkFluid(item, ratio, useUtensil)
+function Nutri.EatHook.hookDrinkFluidAction()
+    local cls = ISDrinkFluidAction
+    if not cls or cls.__nutriHooked then return end
+
+    local origUpdateEat = cls.updateEat
+    cls.updateEat = function(self, delta)
+        local fc = self.fluidContainer
+        local preRatio = fc and fc:getFilledRatio() or 0
+        local preWeight = self.item and self.item:getActualWeight() or 0
+        origUpdateEat(self, delta)
+        if fc then
+            local thisRatio = preRatio - fc:getFilledRatio()  -- 本次实际喝掉的比例
+            if thisRatio > 0 and self.item then
+                Nutri.Core.onEat(self.item, self.character, thisRatio, preWeight)
+            end
+        end
+    end
+
+    cls.__nutriHooked = true
 end
 
 function Nutri.EatHook.install()
-    if Nutri.EatHook.done then return end
-    local items = ScriptManager.instance():getAllItems()
-    for i = 0, items:size() - 1 do
-        local scriptItem = items:get(i)
-        -- 只处理食物脚本：B42 脚本对象类型判定（见下注）
-        if Nutri.EatHook.isFoodScript(scriptItem) then
-            local full = scriptItem:getModule() .. "." .. scriptItem:getName()
-            Nutri.EatHook.prev[full] = scriptItem:getOnEat()
-            scriptItem:setOnEat("Nutri_OnFoodEaten")
-        end
-    end
-    Nutri.EatHook.done = true
+    Nutri.EatHook.hookEatFoodAction()
+    Nutri.EatHook.hookDrinkFluidAction()
 end
 ```
 
 注：
 
-- `isFoodScript` 的实现二选一（编码时在游戏内确认，§14-R1）：脚本 `Item` 的类型枚举（`getType()` / `Type.Food`），或 `instanceof(ScriptManager.instance:findItem(...))` 试探；优先枚举法。
-- **注入时机**：`OnCreatePlayer`（脚本已全部 merge）。`DrainableComboItem` 也有 `onEat` 字段（如喝品），一并纳入判定，覆盖 B42 流体容器。
-- 设计 §4.1.2 的重量折算：
+- **安装时机**：MOD shared 晚于原版 shared 加载，两个 TimedAction 类已存在；为兼容"Reset Lua 重跑"（R13），install 在 OnCreatePlayer 调用，类上的 `__nutriHooked` 标记保证幂等。
+- **路径②（备选补充）**：若发现脚本或其他 MOD 直接调 `character:Eat` 而不经 TimedAction（R1 实测确认），则在 OnCreatePlayer 与容器更新事件中遍历玩家可及容器，对 Food / DrainableComboItem **实例** `setOnEat("Nutri_OnFoodEaten")`，并先保存实例原钩子名形成调用链。
+- 重量折算（Eat/DrinkFluid 执行后 usedDelta/填充量已变化，必须用吃前重量）：
 
 ```lua
-function Nutri.Core.onEat(food, player, percentage)
+function Nutri.Core.onEat(food, player, percentage, preWeightKg)
     local row = Nutri.Data.lookupPer100(food)          -- 每100g
-    -- getActualWeight 是当前（吃之前）整份重量；本次吃入重量 ≈ 整份重 × percentage
-    local grams100 = (food:getActualWeight() * 1000.0) * percentage / 100.0
+    -- preWeightKg 为吃之前整份重量；本次吃入重量 ≈ 整份重 × percentage
+    local grams100 = (preWeightKg * 1000.0) * percentage / 100.0
     Nutri.Core.addIntake(player, row, grams100)        -- 各营养素 ×grams100 累加
 end
 ```
 
-- 健壮性：整段回调 pcall 包裹（原版用 pcallvoid 调用，抛错不影响进食，但会污染 console）。
-- **风险**：B42 吃流体（`DrinkFluid`）走另一路径，若其不读 `onEat`，流体食物（汤等）在第一版走"识别为 Food 即记录"的统一兜底；实测后若漏记，改挂 `DrinkFluid` 的脚本钩子（API 上与 Eat 并列存在）。
+- **流体营养口径**：汤等流体为动态合成物，DataLayer 第一版可能无精确行，用容器物品兜底行 × 本次喝入比例；R12 实测流体类型/属性读取 API 后细化（`fluidContainer:getProperties()` 已提供 getHungerChange 等，是后续精细化的入口）。
+- 健壮性：记账逻辑整体 pcall 包裹，任何异常不得阻断进食动作。
+- **多 MOD 兼容**：包装保存原函数引用并先调原版，其他 MOD 先装/后装均可链式执行；不再独占 `setOnEat`，规避旧方案的挂接顺序风险。
 
 ### 7.2 运动消耗（`Nutri_Exercise.lua`）
 
@@ -508,12 +592,12 @@ end
 
 B42 翻越/攀爬仍是 Lua TimedAction（原版类已核实存在；B42 具体类名以本机游戏文件为准，§14-R5）：
 
-| 设计动作 | 原版类（`media/lua/client/TimedActions/`） | 挂接点 |
+| 设计动作 | 原版类（`media/lua/{client,shared}/TimedActions/`） | 挂接点 |
 |---|---|---|
-| 翻越栅栏/矮墙 | `ISClimbOverFence` | 包装 `perform`（原版 perform 内调 `character:climbOverFence(dir)`） |
-| 翻窗进出 | `ISClimbThroughWindow` | 包装 `perform` |
-| 攀爬绳索 | `ISClimbSheetRopeAction` | 包装 `perform` |
-| 重拳/撞门 | `ISSmashWindow` 等破门动作 | 包装 `perform` |
+| 翻越栅栏/矮墙 | `ISClimbOverFence`（client） | 包装 `perform`（原版 perform 内调 `character:climbOverFence(dir)`） |
+| 翻窗进出 | `ISClimbThroughWindow`（client） | 包装 `perform` |
+| 攀爬绳索 | `ISClimbSheetRopeAction`（client） | 包装 `perform` |
+| 重拳/撞门 | `ISSmashWindow`（**shared**）等破门动作 | 包装 `perform` |
 | 上下楼梯/跳跃 | 无独立 TimedAction（移动系统内置） | 用 OnPlayerUpdate 姿态+位移启发式，或在实测中找对应动作类（R5） |
 
 包装模式（保留原链，禁止覆盖式改写）：
@@ -668,16 +752,17 @@ B42 `Nutrition` 的体重由原版 `update()` 根据热量与 `isIncWeight/isDec
 ### 8.1 进食（即时）
 
 ```
-玩家完成一口进食
- └─ 原版 IsoGameCharacter:Eat(food, percentage, useUtensil)
-     ├─ 原版 Nutrition 四营养 + calories（原版账，不动）
-     ├─ 脚本 OnEat → Nutri_OnFoodEaten(info, player, percentage)
-     │    ├─ 原 OnEat 链（保留）
-     │    └─ Nutri.Core.onEat
-     │         ├─ lookupPer100（精确表/分类兜底）
-     │         ├─ 重量折算 → 8 大类 + 4 预留细项
-     │         └─ md.Nutri.intakeToday 累加（即时落盘）
-     └─ 原版剩余流程（UseAndSync 等）
+玩家完成进食 TimedAction（ISEatFoodAction / ISDrinkFluidAction）
+ ├─ 包装层先取吃前重量 preWeight = item:getActualWeight()
+ ├─ 原版 complete / updateEat
+ │    └─ character:Eat / DrinkFluid
+ │         ├─ 原版 Nutrition 四营养 + calories（原版账，不动）
+ │         ├─ 原版实例 OnEat 字段链（若该实例原有，不动）
+ │         └─ 原版剩余流程（UseAndSync 等）
+ └─ Nutri.Core.onEat(item, player, 本次吃入比例, preWeight)
+      ├─ lookupPer100（精确表/分类兜底）
+      ├─ 重量折算 → 8 大类 + 4 预留细项
+      └─ md.Nutri.intakeToday 累加（即时落盘）
 ```
 
 ### 8.2 运动（每秒 + 瞬时）
@@ -716,7 +801,7 @@ EveryHours：症状插值/短期窗口缓存刷新（轻量）
 
 ## 9. 多人预留（第一版不启用）
 
-- 结算全在 shared，未来多人时：进食/运动写入点改为**服务器权威**（OnEat 回调在服务端 Eat 流程同样会调；`OnPlayerUpdate` 仅客户端，需替换为服务端角色 update 事件或客户端上报+服务端校验）。
+- 结算全在 shared，未来多人时：进食/运动写入点改为**服务器权威**。路径① TimedAction 包装只在客户端执行，需改为客户端上报 + 服务端校验；路径②的实例 OnEat 回调在服务端 Eat 流程同样会触发，可作服务端挂钩点。`OnPlayerUpdate` 仅客户端，需替换为服务端角色 update 事件。
 - 全局共享数据改走 `ModData.getOrCreate("Nutri.Global")` + `transmit/request`；玩家私有结果仍存 `player:getModData()` 但需自定义网络字段同步（B42 network fields）。
 - B42 存在 XP 反作弊（`AntiCheatXP*`），服务器主动 AddXP 需走 packet（`AddXpPacket` 已在 B42 源码中）。
 - 所有写入函数内部预留 `Nutri.Core.isAuthority(player)` 开关（单机恒 true），第一版不引网络代码。
@@ -728,7 +813,7 @@ EveryHours：症状插值/短期窗口缓存刷新（轻量）
 | 项 | 措施 |
 |---|---|
 | OnPlayerUpdate | 不闭包分配、不查表遍历；档位判定固定顺序；1s 节流；修饰器汇总每秒最多一次 |
-| OnEat | 仅进食瞬间执行，全表查找为哈希索引 O(1)；脚本枚举只在启动一次 |
+| 进食记账 | 仅进食瞬间执行，全表查找为哈希索引 O(1)；TimedAction 包装只安装一次 |
 | EveryDays | 单玩家 7 条历史 + 7 疾病，常量级 |
 | UI | 不可见不解绑也要停刷新（关闭即移除监听）；sparkline 7 点定长；无逐帧字符串拼接（文本缓存，数值变化才重建） |
 | 落盘 | 每秒数据只写内存表，10 分钟/关键事件写 modData |
@@ -743,7 +828,7 @@ EveryHours：症状插值/短期窗口缓存刷新（轻量）
 3. hook 一律"包装 + pcall + 原链返回值透传"，任何 MOD 错误不得阻断原版进食/翻越。
 4. 不读 Java 实例字段（B42.15+ Release 限制），只用方法；若某信息只有字段（§14-R3 等），用百科反射辅助函数并集中封装在 `Nutri_DataLayer.reflect`。
 5. 所有写入原版状态的值先经 `Nutri.Core.clamp(v, lo, hi)`；NaN 防御：除法分母为 0 时返回中性值 0。
-6. 与其他 MOD 的兼容：OnEat 钩子保存并调用原 `getOnEat()`；TimedAction 包装保存原 `perform`；不独占 `setOnEat`（多 MOD 同时包装时，后装者会看到我们的钩子名——文档化此顺序风险，必要时改为在钩子内动态查询）。
+6. 与其他 MOD 的兼容：进食与运动统一采用 TimedAction 包装（保存原 `complete/eat/updateEat/perform` 引用并先调原版），不修改脚本对象、不独占实例 `setOnEat`；多 MOD 先后包装同一类方法天然形成调用链。若 R1 实测后启用路径②实例 OnEat 挂钩，则保存实例原钩子名并在回调中先调用原链。
 7. 日志统一 `Nutri.log(level, fmt, ...)`，开关在 Config；错误级别打 `print`（入 console.txt），调试级别默认关。
 
 ---
@@ -793,18 +878,18 @@ EveryHours：症状插值/短期窗口缓存刷新（轻量）
 
 | 编号 | 项 | 验证方法 | 失败降级 |
 |---|---|---|---|
-| R1 | 脚本食物类型判定（`getType()==Food` 的确切枚举写法）、`setOnEat` 在脚本对象上启动期设置是否对后续生成实例生效 | 调试模式启动后枚举打印食物数量；吃一口未配置 MOD 表的食物看日志 | 改为在 `OnCreatePlayer` 后对背包/世界已有 Food 实例设置 + 监听容器事件（重） |
+| R1 | 进食是否全部经 TimedAction（有无脚本/其他 MOD 直接调 `character:Eat`）；路径②实例 OnEat 挂钩所需容器事件的触发时机 | 调试模式吃各类食物（含分次吃、喝瓶装水、喝流体）对比日志触发次数与实际口数 | 补充路径②：OnCreatePlayer + 容器更新事件对 Food / DrainableComboItem **实例** `setOnEat`（§7.1） |
 | R2 | `PZAPI.ModOptions` 及 `addKeyBind/getOptions` 在 B42.20 的确切存在与签名 | F11 里 `print(PZAPI, PZAPI and PZAPI.ModOptions)`；选项界面查看 | OnKeyKeepPressed + 默认键码 fallback |
 | R3 | `isSneaking()` 是否等价 B42 蹲姿；`CharacterInputComponent` 是否可从 Lua 取（`player:getInputComponent()` 等） | 实测三姿态下各谓词返回 | 蹲走档并入步行档×1.4 配置常量，行为差异接受 |
 | R4 | `XP:AddXP` 负增量是否生效、是否触发反作弊/halo | 造境亏空 7 天观察技能 XP 面板 | 只抑制增长 + 削当前级进度（不降级），日志告警 |
-| R5 | B42 TimedAction 翻越/窗/绳/破门的确切类名与方法（B42 重写过移动动作） | 在本机 `media/lua/client/TimedActions/` 目录核对 | 用 OnPlayerUpdate 姿态+高度/位移启发式结算瞬时消耗 |
+| R5 | B42 TimedAction 翻越/窗/绳/破门的确切类名与方法（B42 重写过移动动作） | 在本机 `media/lua/client/TimedActions/` 与 `media/lua/shared/TimedActions/` 两个目录核对 | 用 OnPlayerUpdate 姿态+高度/位移启发式结算瞬时消耗 |
 | R6 | `setBlockMovement` 锁定 0.5–1s 的副作用（联机/寻路/卡住）；死亡与登出清理 | 造境反复触发 + 读档 | 改为纯视觉+耐力惩罚，不锁输入 |
 | R7 | 耐力自然恢复常量标定（保证恢复系数 1.0 等价原版） | 静止实测秒级耐力回升曲线 | 缩小 MOD 干预幅度，仅做乘区近似 |
 | R8 | 体重联动实现选型（§7.6 方案 1/2）、`setWeight` 后原版 update 是否回弹 | 长周期造境称重 | 方案 2：只做消耗/成长侧体重系数，不写重量 |
 | R9 | BodyPart/BodyDamage 伤口愈合速率、骨折相关 B42 接口 | 反编译本机类 + 受伤实测 | 用受伤加伤近似愈合变慢；骨质病症状缩减 |
 | R10 | 受击/受伤事件名与参数（消瘦"受伤+"） | OnWeaponHitX/OnPlayerDamage 类事件实测 | 仅保留耐力侧症状 |
 | R11 | 小概率"武器掉落"的安全原版调用（unEquip 路径） | 挥击实测 | 删掉该表现，保留数值惩罚 |
-| R12 | `DrinkFluid`（B42 流体）是否经过 OnEat 钩子 | 喝汤/喝水造境 | 挂 DrinkFluid 并列钩子或其脚本字段 |
+| R12 | 流体营养数据口径：`fluidContainer:getProperties()` 及流体类型 API 在 B42.20 能取得哪些营养字段 | 喝不同流体（汤/水/炖菜）对比日志与实际摄入 | 沿用容器物品兜底行 × 本次喝入比例（§7.1 已包装 updateEat） |
 | R13 | Reset Lua 后全部 hook 的幂等重装（开发期高频操作） | Debug → Reset Lua 多次 | install 全部带 done 标记且可重入 |
 
 无 R 标记的内容均为已核实事实。编码顺序建议先打通 R1（进食）→ R5/R3（消耗）→ R7/R4（成长）→ 疾病 → UI，优先消除最高不确定性。
@@ -813,8 +898,8 @@ EveryHours：症状插值/短期窗口缓存刷新（轻量）
 
 ## 15. 实施里程碑（文件级任务）
 
-1. **M1 骨架**：`mod.info` + 目录 + `Nutri_Config`（含自检）+ `Nutri_DataLayer`（freshState/ensurePlayer/migrate + 60–80 食物表 + 兜底）+ Debug.dump。
-2. **M2 进食闭环**：`Nutri_EatHook`（R1/R12）+ `Core.onEat/addIntake`；验收用例 1。
+1. **M1 骨架**：`mod.info` + 目录 + `Nutri_Config`（含自检）+ `Nutri_DataLayer`（freshState/ensurePlayer/migrate + 60–80 食物表 + 兜底）+ Debug.dump + **存档往返测试**（按 §6.5.6 实测升档/降档不崩不 wipe，`schema` 链式迁移生效）。
+2. **M2 进食闭环**：`Nutri_EatHook` 路径① TimedAction 包装（ISEatFoodAction / ISDrinkFluidAction，R1/R12）+ `Core.onEat/addIntake`（吃前重量折算）；验收用例 1。
 3. **M3 消耗**：`Nutri_Exercise` 每秒结算（R3/R7 不阻塞数值框架）+ 武器 + TimedAction（R5）；验收用例 2、7。
 4. **M4 每日结算**：`Nutri_History` + EveryDays/读档补算 + 评分纯函数单测。
 5. **M5 成长/体重**：`Nutri_Growth` 短期修正（composeModifiers）+ XP（R4）+ 体重（R8）；验收用例 3、5。
@@ -843,12 +928,13 @@ p:getStats():get(CharacterStat.ENDURANCE) / :set(CharacterStat.ENDURANCE, v)
 p:getXp():AddXP(PerkFactory.Perks.Fitness, delta, true--[[noMult]], false--[[halo]])
 p:isSprinting()/isRunning()/isSneaking()/isMoving()/getInventoryWeight()
 p:getPrimaryHandItem()
--- 食物（OnEat 回调内）
+-- 食物（进食 TimedAction 包装内）
 info:getFullType()/getFoodType()/getActualWeight()
 info:getCalories()/getCarbohydrates()/getLipids()/getProteins()
--- 脚本枚举（启动期）
-ScriptManager.instance():getAllItems()         -- ArrayList，:size()/:get(i)
-scriptItem:getOnEat()/setOnEat("GlobalFnName")
+-- 进食挂接路径①：包装类方法、保存原链（首选）
+ISEatFoodAction.complete/eat、ISDrinkFluidAction.updateEat
+-- 进食挂接路径②（R1 实测后可选）：仅实例有 OnEat 访问器，脚本对象 Item 无
+food:getOnEat()/setOnEat("GlobalFnName")         -- Food / DrainableComboItem 实例
 -- 环境
 getClimateManager():getAirTemperatureForCharacter(p, false)
 getGameTime():getWorldAgeHours()/getNightsSurvived()
