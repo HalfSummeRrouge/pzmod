@@ -313,6 +313,55 @@ main{flex:1;display:flex;overflow:hidden}
 .gm-cell.neg .gm-val{color:var(--red-2)}
 .gm-cell .gm-arrow{font-size:14px;margin-right:4px}
 
+/* ============ DIAGRAM: SCORE FORMULA ============ */
+.score-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.score-step{display:flex;background:var(--panel);border:1px solid var(--line);cursor:pointer;transition:all .2s}
+.score-step:hover{border-color:var(--amber)}
+.score-step.active{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.score-step .ss-num{width:58px;background:var(--bg-3);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.score-step .ss-num .n{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--amber-2);font-weight:700;line-height:1}
+.score-step .ss-num .t{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-faint);letter-spacing:2px;margin-top:3px}
+.score-step .ss-body{padding:12px 16px}
+.score-step .ss-title{font-size:14px;color:var(--paper);font-weight:700}
+.score-step .ss-formula{
+  display:block;font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--amber-2);
+  background:var(--bg);border:1px solid var(--line-2);border-left:3px solid var(--amber);
+  padding:8px 16px;margin:8px 0;letter-spacing:.5px;
+}
+.score-step .ss-desc{font-size:11px;color:var(--text-dim);line-height:1.7}
+
+.score-lab-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.score-lab,.score-curve{background:var(--panel);border:1px solid var(--line);padding:16px}
+.score-lab h3,.score-curve h3,.score-branch h3,.score-clamps h3{font-size:13px;color:var(--amber-2);margin-bottom:12px;font-weight:600}
+.lab-slider{margin-bottom:12px}
+.lab-slider label{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:5px;font-family:'JetBrains Mono',monospace}
+.lab-slider label b{color:var(--amber-2)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--line-2);outline:none;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;background:var(--amber);border:3px solid var(--bg-2);border-radius:50%;cursor:pointer;box-shadow:0 0 0 1px var(--amber)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;background:var(--amber);border:2px solid var(--bg-2);border-radius:50%;cursor:pointer}
+.lab-results{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.lr{background:var(--bg-3);border:1px solid var(--line);padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
+.lr span{font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
+.lr b{font-family:'JetBrains Mono',monospace;font-size:15px}
+.lr b.pos{color:var(--green-2)}
+.lr b.neg{color:var(--red-2)}
+.lr b.zero{color:var(--text-dim)}
+
+.curve-legend{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);margin-top:8px;padding:0 8px}
+
+.score-branch{background:var(--panel);border:1px solid var(--line);padding:16px;margin-bottom:16px}
+.branch-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.branch-card{background:var(--bg-3);border:1px solid var(--line);padding:12px;text-align:center;opacity:.4;transition:all .25s}
+.branch-card.on{opacity:1;border-color:var(--amber);box-shadow:0 0 10px rgba(212,162,76,.15)}
+.branch-card .bc-cond{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--paper);font-weight:700;margin-bottom:4px}
+.branch-card .bc-eff{font-size:11px;color:var(--text-dim)}
+
+.score-clamps{background:var(--panel);border:1px solid var(--line);padding:16px}
+.clamp-row{display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.clamp-row:last-child{border-bottom:none}
+.clamp-row code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green-2);background:var(--bg);padding:3px 10px;border:1px solid var(--line);min-width:230px;text-align:center}
+.clamp-row span{font-size:11px;color:var(--text-dim)}
+
 /* ============ SVG sparkline for trend ============ */
 .spark-wrap{margin-top:8px}
 .spark-wrap svg{width:100%;height:30px}
@@ -328,7 +377,7 @@ main{flex:1;display:flex;overflow:hidden}
 /* responsive */
 @media(max-width:1100px){
   .doc-pane{width:45%}
-  .disease-grid,.ex-grid{grid-template-columns:1fr}
+  .disease-grid,.ex-grid,.score-lab-wrap,.branch-cards{grid-template-columns:1fr}
   .arch-grid{grid-template-columns:1fr}
 }
 </style>
@@ -373,6 +422,7 @@ main{flex:1;display:flex;overflow:hidden}
       <div class="viz-tabs" id="vizTabs">
         <div class="viz-tab active" data-viz="arch"><span class="dot"></span>模块架构</div>
         <div class="viz-tab" data-viz="flow"><span class="dot"></span>数据流</div>
+        <div class="viz-tab" data-viz="score"><span class="dot"></span>评分公式</div>
         <div class="viz-tab" data-viz="events"><span class="dot"></span>事件挂接</div>
         <div class="viz-tab" data-viz="disease"><span class="dot"></span>疾病系统</div>
         <div class="viz-tab" data-viz="exercise"><span class="dot"></span>运动与成长</div>
@@ -690,7 +740,7 @@ function setActiveOutline(id){
 function syncVizFromSec(id){
   const map = {
     overview:'arch', nutrition:'arch', food:'arch', intake:'flow',
-    exercise:'exercise', growth:'exercise', weight:'exercise',
+    exercise:'exercise', growth:'score', weight:'exercise',
     disease:'disease', ui:'arch', arch:'arch'
   };
   const target = map[id] || 'arch';
@@ -714,6 +764,7 @@ function renderViz(id, secId){
   switch(id){
     case 'arch': renderArch(secId); break;
     case 'flow': renderFlow(secId); break;
+    case 'score': renderScore(secId); break;
     case 'events': renderEvents(secId); break;
     case 'disease': renderDisease(secId); break;
     case 'exercise': renderExercise(secId); break;
@@ -931,6 +982,201 @@ function renderExercise(secId){
 
   html += '<div class="note">短期(小时级)：近2天净额>0 → 耐力上限+5%恢复×1.1；当天碳水严重亏空(d<-0.6) → 耐力恢复冻结。实现调用 player:getXp():AddXP(Perks.Fitness/Strength, delta)。</div>';
   vizCanvas.innerHTML = html;
+}
+
+/* --- 评分公式展开 --- */
+const SCORE_STEPS = [
+  { n:'1', t:'当日净额',
+    f:'Net = Intake − ( BMR + Move + Burst )',
+    d:'Intake：OnEatFood 当日累计摄入；BMR：基础代谢；Move：按秒结算动作消耗；Burst：瞬时动作消耗。每日凌晨 0 点集中结算。' },
+  { n:'2', t:'归一化评分',
+    f:'d = clamp( Net / DRI , −1 , +1 )',
+    d:'DRI 为每日参考需求（蛋白 75g / 碳水 250g / VC 100mg …）。结果 d ∈ [−1,+1]，消除各营养素量纲差异，盈亏对称可比。' },
+  { n:'3', t:'7 天滚动均值',
+    f:'S = ( d₁ + d₂ + … + d₇ ) / 7',
+    d:'最近 7 天历史队列的平均，滤除单日波动，作为长期判定的稳定信号（疾病触发 / 成长 / 体重联动均基于 S）。' },
+  { n:'4', t:'营养满足度',
+    f:'Satiety = avg( S_protein , S_carbs )',
+    d:'长期成长取蛋白 + 碳水两项 7 天均值的平均，∈ [−1,+1]。正 = 盈余，负 = 亏空。' },
+  { n:'5', t:'每日经验流',
+    f:'XP = Stimulus × Satiety  ( |XP| ≤ Cap )',
+    d:'Stimulus 为当日运动量 ∈ [0,1]；Cap 为单日经验上限防刷。写入 AddXP( Perks.Fitness / Perks.Strength )。' },
+];
+
+function renderScore(secId){
+  const active = secId==='growth';
+  let html = `<div class="diagram-title">
+    <span class="tag">FORMULA</span><h2>营养评分公式展开</h2>
+    <span class="desc">净额 → 归一化 → 7天均值 → 满足度 → 经验流</span>
+  </div>`;
+
+  // 公式步骤链
+  html += '<div class="score-steps">';
+  SCORE_STEPS.forEach(s=>{
+    html += `<div class="score-step${active?' active':''}" data-sec="growth">
+      <div class="ss-num"><span class="n">${s.n}</span><span class="t">STEP</span></div>
+      <div class="ss-body">
+        <div class="ss-title">${s.t}</div>
+        <code class="ss-formula">${s.f}</code>
+        <div class="ss-desc">${s.d}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 交互演算实验室 + clamp 曲线
+  html += `<div class="score-lab-wrap">
+    <div class="score-lab">
+      <h3>交互演算 · 拖动滑块实时求解</h3>
+      ${scoreSlider('当日摄入 (占 DRI %)','labIn',110,0,200)}
+      ${scoreSlider('当日消耗 (占 DRI %)','labOut',85,0,200)}
+      ${scoreSlider('近6天 d 均值 (历史惯性)','labHist',0,-100,100)}
+      ${scoreSlider('运动量刺激 Stimulus','labStim',60,0,100)}
+      <div class="lab-results">
+        <div class="lr" id="lrNet"><span>净额 Net</span><b class="zero">—</b></div>
+        <div class="lr" id="lrD"><span>当日 d</span><b class="zero">—</b></div>
+        <div class="lr" id="lrS"><span>7天均值 S</span><b class="zero">—</b></div>
+        <div class="lr" id="lrXP"><span>经验流 XP</span><b class="zero">—</b></div>
+      </div>
+    </div>
+    <div class="score-curve">
+      <h3>clamp 截断曲线 · d = clamp( Net/DRI, −1, +1 )</h3>
+      <div id="curveBox"></div>
+      <div class="curve-legend">
+        <span>−1 亏空极限</span><span>0 平衡点</span><span>+1 盈余极限</span>
+      </div>
+    </div>
+  </div>`;
+
+  // 短期耐力分支
+  html += `<div class="score-branch">
+    <h3>短期耐力修正分支（近 2 天净额 S₂ = (d今日 + d近1天) / 2）</h3>
+    <div class="branch-cards">
+      <div class="branch-card" id="brPos"><div class="bc-cond">S₂ &gt; 0</div><div class="bc-eff">耐力上限 +5% · 恢复 ×1.1</div></div>
+      <div class="branch-card" id="brZero"><div class="bc-cond">S₂ ≈ 0</div><div class="bc-eff">无修正</div></div>
+      <div class="branch-card" id="brNeg"><div class="bc-cond">S₂ &lt; 0</div><div class="bc-eff">上限 −10% · 恢复 ×0.85</div></div>
+    </div>
+    <div class="note">附加规则：当天碳水 d &lt; −0.6 → 耐力恢复冻结（饿着跑不动）；与疾病惩罚归一化叠加，整体修正 clamp 在 ±20% 内。</div>
+  </div>`;
+
+  // 钳制与防爆规则
+  html += `<div class="score-clamps">
+    <h3>钳制与防爆规则</h3>
+    <div class="clamp-row"><code>| XP_daily | ≤ XP_Cap</code><span>单日经验上限，防止刷经验</span></div>
+    <div class="clamp-row"><code>耐力修正 ∈ [ −20% , +20% ]</code><span>上限修正钳制，防止属性爆负</span></div>
+    <div class="clamp-row"><code>Penalty = Σ penalty_k / K</code><span>多病并发惩罚归一化累加，K 为并发疾病数，防 NaN / 爆表</span></div>
+  </div>`;
+
+  html += '<div class="note">点击公式步骤卡可跳转到文档 §4.4「长期均值与体力耐力成长」章节。所有系数集中在 Nutri_Config.lua，改参数即调平衡。</div>';
+
+  vizCanvas.innerHTML = html;
+
+  // 步骤卡点击 → 跳转文档
+  vizCanvas.querySelectorAll('.score-step').forEach(el=>{
+    el.addEventListener('click',()=>scrollToSec('growth'));
+  });
+
+  renderClampCurve();
+  bindScoreLab();
+}
+
+function scoreSlider(label,id,val,min,max){
+  return `<div class="lab-slider">
+    <label>${label} <b id="${id}Val">${val}</b></label>
+    <input type="range" id="${id}" min="${min}" max="${max}" value="${val}">
+  </div>`;
+}
+
+/* clamp 曲线 SVG 绘制 */
+function curveX(v){ const pad=42,W=440; return pad+(v+2)/4*(W-pad*2); }
+function curveY(v){ const H=230; return H/2 - v/1.35*(H/2-16); }
+function renderClampCurve(){
+  const box=document.getElementById('curveBox');
+  if(!box) return;
+  const W=440,H=230;
+  let g='';
+  // 竖向网格（每 0.5）
+  for(let x=-2;x<=2.01;x+=0.5){
+    g+=`<line x1="${curveX(x)}" y1="${curveY(1.3)}" x2="${curveX(x)}" y2="${curveY(-1.3)}" stroke="#3d3126" stroke-width="1"/>`;
+  }
+  // 横向参考线：−1 / 0 / +1
+  [-1,0,1].forEach(y=>{
+    g+=`<line x1="${curveX(-2)}" y1="${curveY(y)}" x2="${curveX(2)}" y2="${curveY(y)}"
+      stroke="${y===0?'#5a4736':'#5a3a30'}" stroke-width="1" ${y!==0?'stroke-dasharray="4,3"':''}/>`;
+  });
+  // clamp 曲线主体
+  const path=`M ${curveX(-2)} ${curveY(-1)} L ${curveX(-1)} ${curveY(-1)} L ${curveX(1)} ${curveY(1)} L ${curveX(2)} ${curveY(1)}`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${g}
+    <path d="${path}" fill="none" stroke="#d4a24c" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="${curveX(-1)}" y="${curveY(-1)+16}" fill="#e0735f" font-size="10" font-family="JetBrains Mono" text-anchor="middle">−1</text>
+    <text x="${curveX(1)}" y="${curveY(1)-8}" fill="#e0735f" font-size="10" font-family="JetBrains Mono" text-anchor="middle">+1</text>
+    <text x="${curveX(0)}" y="${curveY(0)-6}" fill="#9a8a72" font-size="10" font-family="JetBrains Mono" text-anchor="middle">0</text>
+    <line id="markV" x1="${curveX(0)}" y1="${curveY(1.3)}" x2="${curveX(0)}" y2="${curveY(-1.3)}" stroke="#7fa85b" stroke-width="1" stroke-dasharray="3,3"/>
+    <line id="markH" x1="${curveX(-2)}" y1="${curveY(0)}" x2="${curveX(2)}" y2="${curveY(0)}" stroke="#7fa85b" stroke-width="1" stroke-dasharray="3,3"/>
+    <circle id="curveMark" cx="${curveX(0)}" cy="${curveY(0)}" r="6" fill="#a0c970" stroke="#15110d" stroke-width="2"/>
+    <text id="markLabel" x="${curveX(0)}" y="${curveY(0)-12}" fill="#a0c970" font-size="11" font-family="JetBrains Mono" text-anchor="middle">d=0.00</text>
+    <text x="${curveX(2)}" y="${curveY(-1.3)+18}" fill="#6b5d4a" font-size="10" font-family="JetBrains Mono" text-anchor="end">Net/DRI →</text>
+    <text x="${curveX(-2)}" y="${curveY(1.3)-6}" fill="#6b5d4a" font-size="10" font-family="JetBrains Mono">d ↑</text>
+  </svg>`;
+}
+
+function updateCurveMark(x){
+  const mark=document.getElementById('curveMark');
+  if(!mark) return;
+  const cx=curveX(Math.max(-2,Math.min(2,x)));
+  const cy=curveY(Math.max(-1,Math.min(1,x)));
+  mark.setAttribute('cx',cx); mark.setAttribute('cy',cy);
+  const mv=document.getElementById('markV'), mh=document.getElementById('markH');
+  mv.setAttribute('x1',cx); mv.setAttribute('x2',cx);
+  mh.setAttribute('y1',cy); mh.setAttribute('y2',cy);
+  const lb=document.getElementById('markLabel');
+  const d=Math.max(-1,Math.min(1,x));
+  lb.textContent='d='+(d>0?'+':'')+d.toFixed(2);
+  lb.setAttribute('x',Math.max(curveX(-1.6),Math.min(curveX(1.6),cx)));
+  lb.setAttribute('y',d>=0?cy-12:cy+20);
+}
+
+/* 交互演算绑定 */
+function bindScoreLab(){
+  const el=id=>document.getElementById(id);
+  const fmt=(v,unit)=>{ const s=v>0?'+':''; return s+v.toFixed(2)+unit; };
+  const setRes=(id,v,unit)=>{
+    const b=el(id).querySelector('b');
+    b.textContent=fmt(v,unit);
+    b.className=v>0.005?'pos':(v<-0.005?'neg':'zero');
+  };
+  const update=()=>{
+    const intake=+el('labIn').value, out=+el('labOut').value;
+    const hist=+el('labHist').value/100, stim=+el('labStim').value/100;
+    el('labInVal').textContent=intake+'%';
+    el('labOutVal').textContent=out+'%';
+    el('labHistVal').textContent=(hist>0?'+':'')+hist.toFixed(2);
+    el('labStimVal').textContent=Math.round(stim*100)+'%';
+    // STEP1 净额（以 DRI 百分比表示）
+    const net=intake-out;
+    // STEP2 归一化
+    const d=Math.max(-1,Math.min(1,net/100));
+    // STEP3 7天均值（今日 + 近6天惯性）
+    const s=(d+6*hist)/7;
+    // STEP5 经验流
+    const xp=stim*s;
+    setRes('lrNet',net,'%');
+    setRes('lrD',d,'');
+    setRes('lrS',s,'');
+    setRes('lrXP',xp,'');
+    // 曲线标记（x 轴 = Net/DRI）
+    updateCurveMark(net/100);
+    // 短期耐力分支点亮
+    const s2=(d+hist)/2;
+    el('brPos').classList.toggle('on',s2>0.05);
+    el('brZero').classList.toggle('on',s2>=-0.05&&s2<=0.05);
+    el('brNeg').classList.toggle('on',s2<-0.05);
+  };
+  ['labIn','labOut','labHist','labStim'].forEach(id=>{
+    el(id).addEventListener('input',update);
+  });
+  update();
 }
 
 /* ============================================================
