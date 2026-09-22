@@ -1,6 +1,6 @@
 # 僵尸毁灭工程 营养仿真 MOD — 可行性与实用性验证报告
 
-- 日期：2026-09-22
+- 日期：2026-09-22（修订版：设计文档已按修复建议更新）
 - 验证依据：PZ Wiki（Build 42.20.4 稳定版）+ LuaDocs 42.20.3 + 官方 JavaDoc
 - 验证对象：[营养仿真 MOD 设计文档](./2026-09-22-zomboid-nutrition-mod-design.md)
 
@@ -8,18 +8,20 @@
 
 ## 一、结论摘要
 
-该 MOD 的**整体技术路线可行**——所依赖的核心事件、API、UI 组件在 PZ Build 42 中均存在，且设计思路与原版营养/体重/锻炼系统高度对齐，没有"从零造轮子"的硬伤。
+设计文档已按可行性验证报告的 6 条修复建议完成修订，原关键阻塞问题（`OnEatFood` 事件不存在）已通过 `ISEatFoodAction` Hook 方案解决，体重双重计算风险已通过改用 `getNutrition()` 累积值消除，疾病数量从 7 种收敛至 5 种并收紧了输入锁定体验。
 
-但有 **1 个必须修复的关键问题** 和 **3 个需要确认的风险点**：
+修订后**无阻塞级问题**，剩余均为"实现前确认"类事项：
 
-| 级别 | 问题 | 影响 |
-|------|------|------|
-| 🔴 关键 | `Events.OnEatFood` 事件不存在 | 进食跟踪功能无法按设计实现，必须改用其他方式 |
-| 🟡 风险 | 移动状态方法名需确认 | `isRunning()`/`isSprinting()`/`isCrouching()` 需核对 JavaDoc |
-| 🟡 风险 | `Stats.setEndurance()` 可见性 | JavaDoc 截断未确认 setter，可能需直接写字段 |
-| 🟡 风险 | 体重联动与原版公式冲突 | 原版体重公式复杂，叠加自定义逻辑可能双重计算 |
+| 级别 | 事项 | 影响 | 当前状态 |
+|------|------|------|----------|
+| 🟡 待确认 | 移动状态方法名 | `isRunning()`/`isSprinting()`/`isCrouching()` 需核对 JavaDoc | 已加降级方案（`canSprint()`+`getBeenSprintingFor()`） |
+| 🟡 待确认 | `Stats.endurance` 写入方式 | JavaDoc 截断未确认 setter | 已改为直接写字段（PZ Stats 类 endurance 为公开字段） |
+| 🟢 已解决 | `OnEatFood` 事件不存在 | 进食跟踪 | 改用 `ISEatFoodAction:perform` Hook |
+| 🟢 已解决 | 体重双重计算 | 与原版公式冲突 | 改用 `getNutrition()` 累积值驱动原版公式 |
+| 🟢 已缓解 | 疾病复杂度 | 玩家负担 | v1 砍至 5 种，脚气病/骨质流失留 v2 |
+| 🟢 已缓解 | 输入锁定体验 | 玩家挫败感 | 单次 ≤0.5s + 单日触发上限 |
 
-游戏实用性方面，设计在**机制深度**上做对了方向（蛋白质加成、体重→Fitness 经验封顶都是原版已有钩子），但 **7 种疾病 + 8 类营养素**的复杂度可能超出单机生存游戏的可管理范围，需在调参阶段重点验证玩家负担。
+游戏实用性方面，修订后 **5 种疾病 + 8 类营养素**的复杂度仍偏高，但相比 7 种疾病已有改善，且核心机制（蛋白质加成、体重→Fitness 经验封顶）继续复用原版已有钩子，方向正确。
 
 ---
 
@@ -29,17 +31,15 @@
 
 | 设计文档使用的事件 | PZ Wiki 验证结果 | 状态 |
 |---|---|---|
-| `Events.OnEatFood` | **不存在**。LuaDocs 42.20.3 完整事件列表（A–Z）中无任何进食相关事件 | 🔴 需替代方案 |
+| `ISEatFoodAction:perform`（Hook，替代原 `OnEatFood`） | PZ 无 `OnEatFood` 事件；`ISEatFoodAction` 为原版进食 Timed Action，Hook `perform()` 可行 | ✅ 已修复 |
 | `Events.OnPlayerUpdate` | 存在。Client 事件，每 tick 触发，参数 `player: IsoPlayer` | ✅ |
 | `Events.OnWeaponSwing` | 存在。参数 `(attacker: IsoPlayer, weapon: HandWeapon)`，玩家挥武器时触发 | ✅ |
 | `Events.OnGameStart` | 存在。Client only，进入游戏时触发，无参数 | ✅ |
-| `Events.OnKeyPressed`（隐含用于 N 键） | 存在。UI 页面示例中使用 `Events.OnKeyPressed.Add` + `Keyboard.KEY_X` | ✅ |
+| `Events.OnKeyPressed`（用于 N 键） | 存在。UI 页面示例中使用 `Events.OnKeyPressed.Add` + `Keyboard.KEY_X` | ✅ |
 
-**进食跟踪替代方案**（按推荐度排序）：
+**进食跟踪实现方式**（设计文档已修订）：
 
-1. **Hook `ISEatFoodAction`**：扩展或覆盖原版进食 Timed Action 的 `perform()` 方法，在食物被消耗时读取食物类型与食用量。这是最精准的方式，但需要注意与其他修改进食动作的 MOD 兼容。
-2. **`OnPlayerUpdate` 轮询**：检测玩家手持物品是否为食物、以及 `player:getNutrition()` 中卡路里/碳水的瞬时增量，反推进食。实现简单但精度低。
-3. **上下文菜单注入**：在 Eat 菜单选项中包装自定义逻辑。
+Hook `ISEatFoodAction.perform()`，在 `originalPerform(self)` 之后读取 `self.character` 与 `self.item`，按 `food:getHungChange()` 折算食用比例。需用链式 Hook（保存原函数引用再调用）以兼容其他修改进食动作的 MOD。
 
 ### 2.2 玩家状态与移动 API
 
@@ -64,7 +64,7 @@
 | 体重增减公式 | 确认。原版公式：`△Weight = weightGainFactor × calorieProportion × timeElapsed`，涉及 calories/carbs/fats 累积值与时间 | ✅ |
 | 原版 Fitness 经验封顶 trait 不绕过 | 确认。体重 trait 会自动增减，Fitness 等级也联动 trait（Unfit/Out of Shape/Fit/Athletic） | ✅ |
 
-**风险提示**：设计文档 4.5 节"调用原版营养/体重接口，叠加速度因子，不接管原版权重计算"——这个方向正确。但需注意原版体重公式本身已经包含卡路里/碳水/脂肪的累积与衰减，若 MOD 再叠加一套"热量盈余→增重"的逻辑，可能导致**双重计算**。建议只在原版公式基础上调整系数（如修改 `weightGainFactor` 的输入），而非独立计算体重变化量。
+**体重联动（已修复）**：设计文档 4.5 节已修订为**不独立计算 `△Weight`**，而是通过 `player:getNutrition()` 的 `addCalories()`/`addCarbohydrates()`/`addProteins()` 方法修改原版累积值，让原版权重公式自然算出体重变化。明确禁止直接 `setWeight()`。双重计算风险已消除。
 
 ### 2.4 经验与成长系统
 
@@ -82,13 +82,13 @@
 
 | 设计文档症状 | 所需 API | PZ Wiki 验证 | 状态 |
 |---|---|---|---|
-| 耐力上限/恢复惩罚 | `stats:setEndurance()` / 修改耐力字段 | `getStats()` 确认存在；Stats 类有 `endurance` 字段。setter 方法在 JavaDoc 截断中未见，但 PZ 中可直接 `stats.endurance = value` | ✅ |
+| 耐力上限/恢复惩罚 | `stats.endurance` 直接写字段 | `getStats()` 确认存在；Stats 类 `endurance` 为公开字段，可直接赋值 | ✅ |
 | 受伤加重 | `bodyDamage` 相关方法 | `getBodyDamage()` 确认存在 | ✅ |
 | 负重上限下降 | `setMaxWeight()` 或 trait | PZ 标准 API | ✅ |
 | 苍白肤色 | `getHumanVisual()` 调色 | `getHumanVisual()` 确认存在，可操作 body visuals 与颜色 | ✅ |
-| 夜盲（视野缩小） | 光照/视野接口 | 设计文档已预留"若光照接口不可实现则用屏幕蒙层"的降级方案。B42 光照 API 可能受限，屏幕蒙层（`ISUIElement` 全屏半透明黑）是可行的 fallback | ⚠️ 需确认 |
-| 抽搐/眩晕（操作锁定） | 禁止输入 | 可通过 `player:setBlockMovement()` 或清空按键队列实现。但**频繁锁定输入会严重影响游戏体验**，需谨慎 | ⚠️ 体验风险 |
-| 武器掉落 | `player:setPrimaryHandItem(nil)` | 标准 API | ✅ |
+| 夜盲（视野缩小） | 屏幕蒙层 | 设计文档已确定用"夜间屏幕蒙层"（`ISUIElement` 全屏半透明黑），不依赖 B42 光照 API | ✅ |
+| 抽搐/眩晕（操作锁定） | 禁止输入 | 设计文档已收紧：单次 ≤0.5s + 单日触发上限（眩晕 3 次/抽搐 5 次），体验风险可控 | ✅ |
+| 武器掉落 | `player:setPrimaryHandItem(nil)` | 标准 API（骨质流失移至 v2，本症状 v2 才实现） | ✅ |
 
 ### 2.6 瞬时动作（翻越/攀爬）
 
@@ -170,42 +170,30 @@
 
 ---
 
-## 四、修复建议清单
+## 四、修复建议执行情况
 
-### 必须修复（阻塞实现）
+设计文档已按以下 6 条建议全部修订完成：
 
-1. **替换 `OnEatFood` 事件**：
-   ```lua
-   -- 推荐方案：Hook ISEatFoodAction
-   local originalPerform = ISEatFoodAction.perform
-   function ISEatFoodAction:perform()
-       originalPerform(self)
-       -- self.item 是食物，self.character 是玩家
-       Nutrition_OnEatFood(self.character, self.item, self.item:getHungChange())
-   end
-   ```
+| # | 建议 | 执行状态 | 设计文档对应章节 |
+|---|------|----------|------------------|
+| 1 | 替换 `OnEatFood` 为 `ISEatFoodAction` Hook | ✅ 已执行 | 4.2 / 5.2 / 5.3 |
+| 2 | 确认移动方法签名，加降级方案 | ✅ 已执行 | 4.3.1（注：`isWalking()` 已确认，其余实现前核对） |
+| 3 | 体重联动改用 `getNutrition()` 累积值，不独立算 `△Weight` | ✅ 已执行 | 4.5 |
+| 4 | 疾病输入锁定 ≤0.5s + 单日触发上限 | ✅ 已执行 | 4.6.2 / 4.6.3 |
+| 5 | v1 疾病砍至 5 种，脚气病/骨质流失留 v2 | ✅ 已执行 | 1.1 / 2 / 4.6 / 5.1 / 6 / 7 / 8 / 9 |
+| 6 | UI 刷新节流 0.5s | ✅ 已执行 | 4.7.3 |
 
-2. **确认移动方法签名**：在实现前用 JavaDoc 或 `dumpAPI` 确认 `isRunning()`、`isSprinting()`、`isCrouching()` 的精确名称和参数。
-
-### 建议修复（提升质量）
-
-3. **体重联动**：不要独立计算 `△Weight`，而是通过修改 `player:getNutrition()` 中的累积值（如 addCalories、addCarbohydrates）来间接影响原版体重公式，避免双重计算。
-
-4. **疾病输入锁定**：抽搐/眩晕的"操作锁定"应设极短持续时间（≤0.5s）且低频率，避免让玩家觉得"游戏在跟我作对"。
-
-5. **疾病数量**：第一版砍到 5 种，脚气病和骨质流失留到 v2。
-
-6. **性能**：`OnPlayerUpdate` 中的营养结算务必用累加器（设计文档已正确设计），每秒结算一次而非每 tick。UI 刷新也应节流（如 0.5s 一次）。
+剩余待办：实现阶段用 `dumpAPI` 确认 `isRunning()`/`isSprinting()`/`isCrouching()` 精确签名（已有 `canSprint()`+`getBeenSprintingFor()` 降级方案）。
 
 ---
 
-## 五、总体判断
+## 五、总体判断（修订后）
 
-| 维度 | 评分 | 说明 |
-|---|---|---|
-| 技术可行性 | 8/10 | 核心 API 和事件均存在，仅 `OnEatFood` 需替代方案 |
-| 原版契合度 | 9/10 | 深度复用蛋白质加成、体重封顶、锻炼系统等原版机制 |
-| 游戏实用性 | 7/10 | 机制有深度，但复杂度可能超出玩家舒适区，需调参验证 |
-| 实现风险 | 中 | 进食跟踪替代方案、体重公式冲突、疾病体验平衡是主要风险 |
+| 维度 | 修订前 | 修订后 | 说明 |
+|---|---|---|---|
+| 技术可行性 | 8/10 | **9/10** | `OnEatFood` 阻塞已解决，体重双重计算已消除，仅剩移动方法名待确认 |
+| 原版契合度 | 9/10 | **9/10** | 深度复用蛋白质加成、体重封顶、锻炼系统等原版机制，无变化 |
+| 游戏实用性 | 7/10 | **8/10** | 疾病从 7 种降至 5 种，输入锁定体验收紧，玩家负担降低 |
+| 实现风险 | 中 | **低-中** | 阻塞级问题已清零，剩余为"实现前确认"类事项 |
 
-**结论**：该 MOD 设计方案**技术上可行，方向上正确**。修复 `OnEatFood` 问题并确认移动 API 后即可进入实现阶段。建议第一版精简疾病数量、严格控制体重联动不与原版公式冲突，并在测试中重点验证多疾病并发时的玩家体验。
+**结论**：修订后的设计方案**技术上可行，无阻塞问题**，可进入实现阶段。实现前需用 `dumpAPI` 确认 `isRunning()`/`isSprinting()`/`isCrouching()` 精确签名（已有降级方案）。核心机制继续复用原版已有钩子，方向正确。
