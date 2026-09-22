@@ -40,7 +40,7 @@
 | 体重联动 | 纳入第一版 |
 | 营养疾病 | 7 种（坏血病/贫血/电解质紊乱/消瘦/夜盲症/脚气病/骨质流失） |
 | UI | 面板 + 趋势详情，Vanilla-Native 风格 |
-| 食物数据 | 真实营养成分为参考，人工设定（每 100g 基准） |
+| 食物数据 | 宏量复用原版接口；微量（无机盐/维生素）查 USDA/中国食物成分表，每 100g 基准 |
 | 联机 | 单机优先 |
 
 ---
@@ -85,40 +85,82 @@ MOD 追踪以下营养大类（每类一个标量值，单位为克/毫克）：
 
 ### 4.1 食物营养数据层
 
-#### 4.1.1 数据表结构
+#### 4.1.1 数据分层策略（宏量复用原版 + 微量自建）
+
+PZ 原版每个食物项已有 **4 个宏量营养素**定义在脚本中，可运行时直接读取，**无需手动维护**。MOD 只需自建原版缺失的**微量营养素**数据。
+
+| 层级 | 营养素 | 数据来源 | 维护方式 |
+|---|---|---|---|
+| 宏量（原版已有） | 卡路里 / 碳水 / 蛋白质 / 脂肪 | PZ 食物脚本字段 `Calories` / `Carbohydrates` / `Proteins` / `Lipids` | 运行时 `food:getCalories()` 等接口读取 |
+| 微量（MOD 自建） | 钠 / 钾 / 钙 / 铁 / 维生素 A/C/D/B1 | 真实营养数据库（见 4.1.4） | `Nutri_DataLayer.lua` 手动维护 |
+
+**原版宏量读取接口**（PZ `Food` 类）：
+
+```lua
+food:getCalories()       -- 总卡路里（kcal）
+food:getCarbohydrates()  -- 总碳水（g）
+food:getProteins()       -- 总蛋白质（g）
+food:getLipids()         -- 总脂肪（g）
+item:getWeight()         -- 物品重量（kg）
+```
+
+#### 4.1.2 数据表结构（仅存微量营养素）
 
 每 100g 基准，Lua 表形式（`Nutri_DataLayer.lua`）：
 
 ```lua
--- 食物营养表（每100g基准）
-FoodNutrition = {
-    ["Base.CannedBolognese"] = { -- 罐头肉酱
-        protein = 7.0,   -- g
-        carbs   = 12.0,  -- g
-        fat     = 3.5,   -- g
-        sodium  = 480,   -- mg 无机盐细项
-        potassium = 250, -- mg
-        calcium = 40,    -- mg
-        iron    = 1.2,   -- mg
-        vitA    = 15,    -- µg
-        vitC    = 2,     -- mg
-        vitD    = 0,     -- µg
-        vitB1   = 0.05,  -- mg
+-- 食物微量营养表（每100g基准，宏量从原版读取）
+FoodMicronutrients = {
+    ["Base.TinnedBeans"] = { -- 罐头豆（宏量：Calories=170, Carbs=33, Protein=7, Fat=1）
+        sodium    = 230,   -- mg
+        potassium = 410,   -- mg
+        calcium   = 58,    -- mg
+        iron      = 2.3,   -- mg
+        vitA      = 0,     -- µg
+        vitC      = 6,     -- mg
+        vitD      = 0,     -- µg
+        vitB1     = 0.06,  -- mg
+    },
+    ["Base.Rice"] = { -- 生米
+        sodium    = 5, potassium = 115, calcium = 28, iron = 0.8,
+        vitA = 0, vitC = 0, vitD = 0, vitB1 = 0.58,
     },
     -- ... 其余食物
 }
 ```
 
-#### 4.1.2 折算规则
+#### 4.1.3 单位换算与折算规则
 
-- 按**实际食用重量**折算：食入 200g → 营养值 ×2.0。
-- 烹饪不改变营养表（第一版简化；食物煮烂流失 VC 属后续增强项）。
-- 未收录食物：按类别兜底映射（配置表 `FallbackCategory`：蔬菜/肉类/罐头/谷物...），保底不出现"无营养"。
+- **宏量换算（原版总量 → 每 100g）**：
+  ```
+  每100g值 = 原版总量 × 100 / (item:getWeight() × 1000)
+  ```
+  例：罐头豆重 0.8kg，蛋白质 7g → 每100g蛋白质 = 7 × 100 / 800 = 0.875g
+- **食用折算**：食入 200g → 营养值 ×2.0。
+- **烹饪不改变营养表**（第一版简化；食物煮烂流失 VC 属后续增强项）。
+- **未收录食物**：按类别兜底映射（配置表 `FallbackCategory`：蔬菜/肉类/罐头/谷物...），保底不出现"无营养"。
 
-#### 4.1.3 数据录入范围
+#### 4.1.4 微量营养素数据来源
+
+原版没有的无机盐和维生素数据，从以下权威数据库查询，统一到**每 100g 基准**：
+
+| 数据源 | 网址 | 特点 |
+|---|---|---|
+| **USDA FoodData Central** | https://fdc.nal.usda.gov/ | 美国农业部官方，最全，提供 **API**，可程序化批量查询 |
+| **中国食物成分表** | https://nlc.chinanutri.cn/ | 中国疾控中心营养所，中文权威数据 |
+| **OpenFoodFacts** | https://world.openfoodfacts.org/ | 开源众包，支持中文食品，有 API |
+| **911查询营养成分** | https://yingyang.911cha.com/ | 中文界面，快速查常见食物 |
+
+**单位转换注意**：
+- 维生素 A：USDA 有时用 IU → 1 IU = 0.3 µg 视黄醇
+- 维生素 D：USDA 有时用 IU → 1 IU = 0.025 µg
+- 所有数据统一到"每 100g"基准
+
+#### 4.1.5 数据录入范围
 
 - 第一版覆盖：常见罐头、肉、蔬菜、水果、主食（约 60-80 个高频食物）。
 - 缺失食物走分类兜底，后续按需补齐。
+- 宏量营养素自动从原版获取，无需录入。
 
 ### 4.2 摄入结算（进食）
 
@@ -127,9 +169,21 @@ FoodNutrition = {
 ```lua
 -- 伪代码：进食 → 当日摄入累计
 function Nutrition_OnEatFood(player, food, amount)
-    local nutrition = Nutrition_GetPer100g(food)       -- 查表
     local factor = amount / 100.0                       -- 重量折算
-    DailyIntake[营养大类] += nutrition[k] * factor      -- 写入当日累计
+
+    -- 宏量营养素：从原版 Food 接口读取并换算为每100g
+    local w = food:getWeight() * 1000                   -- 物品总重（g）
+    local per100 = 100 / w
+    DailyIntake.calories += food:getCalories() * per100 * factor
+    DailyIntake.carbs    += food:getCarbohydrates() * per100 * factor
+    DailyIntake.protein  += food:getProteins() * per100 * factor
+    DailyIntake.fat      += food:getLipids() * per100 * factor
+
+    -- 微量营养素：从自建数据表读取
+    local micro = FoodMicronutrients[food:getFullType()] or FallbackCategory[food]
+    for k, v in pairs(micro) do
+        DailyIntake[k] += v * factor
+    end
 end
 ```
 
@@ -205,18 +259,52 @@ end
 
 #### 4.4.4 长期成长（周级）
 
+**核心生理逻辑**：现实中力量增长需要三个条件同时满足——**训练刺激 + 蛋白质盈余 + 热量盈余**。缺一则不长肌肉（甚至分解）。
+
 ```
-每日经验流 = 训练刺激（当日运动量，0~1）× 营养满足度（蛋白+碳水7天均值，-1~1）
+┌─────────────────────────────────────────────────────────┐
+│  力量增长三重门（全部满足才正增长）                        │
+│                                                          │
+│  ① 训练刺激：当日运动量 > 阈值（抗阻训练信号）            │
+│  ② 蛋白盈余：7天蛋白均值 > DRI（肌肉合成原料）            │
+│  ③ 热量盈余：7天热量均值 > 消耗（合成能量来源）           │
+│                                                          │
+│  三者缺一 → 力量不增长（甚至负增长，分解肌肉供能）        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-| 运动量 | 营养状况 | 结果 |
-|---|---|---|
-| 高 | 盈余 | 经验正增长（快速） |
-| 低 | 盈余 | 少量正增长（维持） |
-| 高 | 亏空 | 经验负增长（练伤自己） |
-| 低 | 亏空 | 缓慢负增长（坐吃山空） |
+**经验流公式**：
 
-- 实现：`player:getXp():AddXP(Perks.Fitness, delta)` 与 `Perks.Strength` 同样处理。
+```
+训练刺激 S = clamp(当日运动量 / 阈值, 0, 1.5)        -- 0~1.5
+蛋白盈余 P = max(0, 7天蛋白均值 - DRI蛋白) / DRI蛋白   -- 0~1+
+热量盈余 E = max(0, 7天热量均值 - 日消耗) / 日消耗     -- 0~1+
+
+力量经验流 ΔStrength = S × min(P, 1) × (0.5 + 0.5×min(E,1)) × 系数
+体能经验流 ΔFitness  = S × 营养综合满足度 × 系数
+```
+
+**关键规则**：
+- **蛋白是硬门槛**：`P = 0` 时 `ΔStrength = 0`（练再多也不长，甚至负增长）
+- **热量是放大器**：`E = 0` 时 `ΔStrength` 减半；盈余越大增长越快，但盈余过量转化为脂肪
+- **训练是触发器**：`S = 0` 时不增长（光吃不练不长肌肉，只长胖）
+
+| 运动量 S | 蛋白 P | 热量 E | 力量结果 | 说明 |
+|---|---|---|---|---|
+| 高 | 盈余 | 盈余 | **快速增长** | 理想增肌状态 |
+| 高 | 盈余 | 平衡 | 中等增长 | 蛋白够但能量不足，增长受限 |
+| 高 | 不足 | 盈余 | 不增长/负增长 | 原料不足，训练反而分解肌肉 |
+| 高 | 不足 | 亏空 | 快速负增长 | "练伤自己"，肌肉流失 |
+| 低 | 盈余 | 盈余 | 缓慢增长/长胖 | 缺训练信号，蛋白转化为脂肪而非肌肉 |
+| 低 | 不足 | 亏空 | 缓慢负增长 | "坐吃山空"，肌肉萎缩 |
+
+**"多吃长力量"的正确实现**：
+- ✅ 吃够蛋白质（>DRI 75g/天）+ 有热量盈余 + 有训练 → 力量增长
+- ❌ 只多吃碳水/脂肪但蛋白不足 → 不长力量，只长胖
+- ❌ 蛋白够但不运动 → 不长力量，多余蛋白转化为脂肪或排出
+- ❌ 运动但蛋白不够 → 力量下降（肌肉分解供能）
+
+- 实现：`player:getXp():AddXP(Perks.Strength, ΔStrength)` 与 `Perks.Fitness` 同样处理。
 - 钳制：单日经验 delta 上限防刷；耐力上限修正 clamp ±20%；多病并发归一化。
 
 ### 4.5 体重联动（第一版）
@@ -230,6 +318,7 @@ end
 
 - 实现方式：**调用原版营养/体重接口**（`player:getNutrition()` 相关），叠加速度因子，不接管原版权重计算。
 - 体重阈值联动：<55kg 加快力量流失；>95kg 耐力恢复惩罚（肥胖负担）。
+- **肌肉 vs 脂肪**：热量盈余时，若蛋白质充足且有训练刺激 → 盈余转化为肌肉（力量增长，体重稳定）；若蛋白质不足或无训练 → 盈余转化为脂肪（体重增加，力量不增长）。详见 4.4.4 力量三重门。
 - 原版/Fitness 经验封顶 trait 逻辑**保持原样生效**，我们不绕过。
 
 ### 4.6 营养疾病系统
@@ -320,21 +409,27 @@ end
 NutritionMod/
 └── 42/
     ├── mod.info                     -- MOD 清单（name/id/description/author）
-    └── media/
-        ├── lua/
-        │   ├── shared/
-        │   │   ├── Nutri_Config.lua     -- 全部参数（消耗倍率/需求/疾病表/评分）
-        │   │   ├── Nutri_DataLayer.lua  -- 食物营养表 + ModData 读写封装
-        │   │   ├── Nutri_History.lua    -- 7 天滚动历史/每日结算
-        │   │   └── Nutri_Core.lua       -- 摄入/消耗结算、评分计算
-        │   ├── client/
-        │   │   ├── Nutri_UI.lua         -- 营养面板 + 趋势 + 疾病详情
-        │   │   └── Nutri_UITheme.lua    -- 主题令牌（对齐原版色系/字体）
-        │   └── server/
-        │       ├── Nutri_Diseases.lua   -- 7 疾病判定/症状/恢复
-        │       ├── Nutri_Exercise.lua   -- 运动消耗（按秒 + 瞬时动作）
-        │       └── Nutri_Growth.lua     -- 长期成长 + 体重联动
-        └── scripts/            -- 第一版不使用；营养定义唯一来源为 Nutri_DataLayer.lua（见 4.1）
+    ├── media/
+    │   ├── lua/
+    │   │   ├── shared/
+    │   │   │   ├── Nutri_Config.lua     -- 全部参数（消耗倍率/需求/疾病表/评分）
+    │   │   │   ├── Nutri_DataLayer.lua  -- 食物微量营养表（无机盐/维生素）+ 原版宏量读取
+    │   │   │   ├── Nutri_History.lua    -- 7 天滚动历史/每日结算
+    │   │   │   └── Nutri_Core.lua       -- 摄入/消耗结算、评分计算
+    │   │   ├── client/
+    │   │   │   ├── Nutri_UI.lua         -- 营养面板 + 趋势 + 疾病详情
+    │   │   │   └── Nutri_UITheme.lua    -- 主题令牌（对齐原版色系/字体）
+    │   │   └── server/
+    │   │       ├── Nutri_Diseases.lua   -- 7 疾病判定/症状/恢复
+    │   │       ├── Nutri_Exercise.lua   -- 运动消耗（按秒 + 瞬时动作）
+    │   │       └── Nutri_Growth.lua     -- 长期成长（力量三重门）+ 体重联动
+    │   └── scripts/            -- 第一版不使用；宏量从原版 Food 接口读取
+    └── tools/
+        └── Nutri_BalanceSim/       -- 数值平衡模拟工具（独立运行，不打包进 MOD）
+            ├── sim_config.lua
+            ├── sim_engine.lua
+            ├── sim_foods.lua
+            └── sim_runner.lua
 ```
 
 ### 5.2 事件挂接表
@@ -390,7 +485,7 @@ NutritionMod/
 
 ### 6.3 调参
 
-所有参数集中 `Nutri_Config.lua`，测试即调参。
+所有参数集中 `Nutri_Config.lua`，测试即调参。**推荐先用 `Nutri_BalanceSim` 工具（见第 10 节）在外部校准消耗基础值和成长系数，再进游戏验证体感。**
 
 ---
 
@@ -400,7 +495,7 @@ NutritionMod/
 - 动作消耗表（4.3.1 / 4.3.2 / 4.3.3）
 - 环境修正倍率（4.3.4）
 - 短期耐力修正表（4.4.3）
-- 长期成长系数、单日经验上限（4.4.4）
+- 长期成长系数、力量三重门参数（训练阈值/蛋白盈余/热量盈余系数）、单日经验上限（4.4.4）
 - 体重阈值与变化速率（4.5）
 - 7 种疾病表：触发营养素/阈值天数/阶段症状/恢复天数（4.6.2）
 - UI 主题令牌（4.8）
@@ -427,3 +522,173 @@ NutritionMod/
 3. 营养面板正确展示状态/趋势/疾病，风格与原版一致无违和。
 4. 体重变化可通过官方接口驱动，原版 Fitness 封顶机制不被破坏。
 5. 数据表驱动，改 `Nutri_Config.lua` 即可平衡，无需改逻辑代码。
+
+---
+
+## 10. 数值平衡模拟工具（Nutri_BalanceSim）
+
+### 10.1 工具目标
+
+在**不进入游戏**的前提下，用独立脚本模拟"每日摄入 vs 每日消耗"的数值循环，帮助调参者快速回答：
+
+- 典型饮食 + 典型活动 → 每日净额是否接近平衡（d_i ≈ 0）？
+- 极端饮食（只吃罐头/只吃肉）→ 哪些营养素会触发疾病？
+- 消耗基础值设多少时，正常饮食刚好维持体重？
+- 力量增长在什么饮食+运动组合下才会正增长？
+
+### 10.2 工具架构
+
+```
+Nutri_BalanceSim/
+├── sim_config.lua       -- 模拟输入配置（饮食/活动/参数）
+├── sim_engine.lua       -- 核心模拟引擎（摄入/消耗/评分/疾病/成长）
+├── sim_foods.lua        -- 食物营养数据（从 Nutri_DataLayer 同步）
+├── sim_runner.lua       -- 运行入口，输出报告
+└── reports/             -- 模拟结果输出
+```
+
+### 10.3 输入配置（sim_config.lua）
+
+```lua
+SimConfig = {
+    -- 饮食方案：每日吃什么、吃多少
+    diet = {
+        { food = "Base.TinnedBeans",   amount_g = 200 },
+        { food = "Base.Rice",          amount_g = 300 },
+        { food = "Base.CannedTuna",    amount_g = 150 },
+        -- ...
+    },
+    -- 活动方案：每日各动作持续时长（秒）
+    activity = {
+        resting   = 8 * 3600,   -- 睡眠+休息 8h
+        walking   = 4 * 3600,   -- 步行 4h
+        running   = 1.5 * 3600, -- 跑步 1.5h
+        sprinting = 0.5 * 3600, -- 冲刺 0.5h
+        -- 瞬时动作次数
+        fenceClimb = 10,
+        weaponSwing = 50,
+    },
+    -- 模拟天数
+    days = 14,
+    -- 环境参数
+    temperature = 20,  -- °C
+    carryWeight = 15,  -- kg
+}
+```
+
+### 10.4 模拟引擎核心流程
+
+```lua
+function Simulate(config)
+    local history = {}
+    local diseaseStates = InitDiseases()
+    local xp = { fitness = 0, strength = 0 }
+
+    for day = 1, config.days do
+        -- 1. 计算当日摄入
+        local intake = CalcDailyIntake(config.diet)
+
+        -- 2. 计算当日消耗（含动作消耗 + 瞬时动作 + 环境修正）
+        local consumption = CalcDailyConsumption(config.activity, config.temperature, config.carryWeight)
+
+        -- 3. 计算当日净额
+        local net = {}
+        for k, v in pairs(intake) do
+            net[k] = v - (consumption[k] or 0)
+        end
+
+        -- 4. 归一化评分
+        local score = NormalizeScore(net, DRI)
+
+        -- 5. 更新 7 天滚动均值
+        history[day] = net
+        local avg7 = Calc7DayAvg(history, day)
+
+        -- 6. 疾病判定
+        UpdateDiseases(diseaseStates, avg7)
+
+        -- 7. 成长判定（力量三重门）
+        local growth = CalcGrowth(avg7, config.activity, DRI)
+        xp.fitness  = xp.fitness + growth.fitness
+        xp.strength = xp.strength + growth.strength
+
+        -- 8. 体重估算
+        local weightDelta = CalcWeightDelta(net, config.activity)
+    end
+
+    return {
+        history = history,
+        diseaseStates = diseaseStates,
+        xp = xp,
+        finalScore = avg7,
+    }
+end
+```
+
+### 10.5 消耗反推校准（核心功能）
+
+工具提供**自动校准**模式：给定目标饮食方案，反推消耗基础值使每日净额接近平衡。
+
+```lua
+-- 目标：让典型饮食的每日净额 d_i ∈ [-0.1, +0.1]
+function AutoTuneConsumption(diet, targetDRI, activityProfile)
+    local baseCarbs = 0.001  -- 初始猜测
+    local step = 0.0001
+
+    for i = 1, 100 do
+        local intake = CalcDailyIntake(diet)
+        local consumption = CalcDailyConsumption(activityProfile, baseCarbs)
+        local netCarbs = intake.carbs - consumption.carbs
+        local d = netCarbs / targetDRI.carbs
+
+        if math.abs(d) < 0.1 then break end
+        -- 摄入 > 消耗 → 提高基础消耗；反之降低
+        baseCarbs = baseCarbs + (d > 0 and step or -step)
+    end
+
+    return baseCarbs  -- 输出平衡后的碳水基础消耗值
+end
+```
+
+### 10.6 输出报告格式
+
+```
+═══════════════════════════════════════════
+ 营养平衡模拟报告（14天）
+═══════════════════════════════════════════
+
+【每日摄入 vs 消耗】
+营养素     摄入      消耗      净额      DRI      d_i     状态
+─────────────────────────────────────────────────
+卡路里    2450     2380      +70      2200    +0.03   平衡
+碳水       280      275       +5       250    +0.02   平衡
+蛋白质      82       75       +7        75    +0.09   平衡
+脂肪        58       60       -2        60    -0.03   平衡
+钠        2100     2000     +100      2000    +0.05   平衡
+钾        2800     3000     -200      3000    -0.07   平衡
+维生素C      8       50      -42       100    -0.84   ⚠ 危险
+
+【7天均值评分】
+...
+
+【疾病判定】
+坏血病：潜伏（维生素C 7天均值 -0.8 < -0.5，持续 5 天）
+
+【力量成长】
+训练刺激 S=0.8 | 蛋白盈余 P=0.09 | 热量盈余 E=0.03
+→ 力量经验流 = +2.1/天（缓慢增长）
+
+【体重估算】
+14天体重变化：+0.3kg（轻微盈余）
+═══════════════════════════════════════════
+```
+
+### 10.7 典型调参场景
+
+| 场景 | 操作 | 预期输出 |
+|---|---|---|
+| 平衡校准 | 输入典型饮食+活动，运行 AutoTune | 得到使净额≈0 的消耗基础值 |
+| 疾病触发验证 | 输入"只吃罐头"饮食 | 确认 7 天内 VC 触发坏血病 |
+| 增肌验证 | 输入"高蛋白+力量训练" | 确认力量经验流 > 0 |
+| 极端饥饿 | 输入"只喝水" | 确认蛋白/热量快速负增长，触发消瘦 |
+| 边界测试 | 输入 7 病全缺饮食 | 确认惩罚归一化，无 NaN |
