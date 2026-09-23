@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Metabolism · 玩法速览</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050508;
+  --bg-2:#0c0c14;
+  --panel:rgba(16,16,26,.55);
+  --line:rgba(120,130,160,.18);
+  --line-2:rgba(120,130,160,.35);
+  --text:#e2e5f0;
+  --text-dim:#8b8fa6;
+  --text-faint:#52566e;
+  --pos:#00ffd5;
+  --pos-2:#5ef7e0;
+  --neg:#ff3b5c;
+  --neg-2:#ff6b84;
+  --amber:#ffb800;
+  --green:#4ade80;
+  --blue:#38bdf8;
+  --violet:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:15px;line-height:1.6;min-height:100vh;overflow-x:hidden}
+
+/* 背景氛围 */
+body{
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0,255,213,.07), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(255,59,92,.06), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 80%, rgba(255,184,0,.05), transparent 50%),
+    var(--bg);
+  position:relative;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
+  background-image:repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,.5) 3px);
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.container{max-width:1180px;margin:0 auto;padding:40px 28px 80px;position:relative;z-index:2}
+
+/* ============ HEADER ============ */
+header{margin-bottom:36px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:18px}
+.brand h1{
+  font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(28px,5vw,46px);
+  letter-spacing:2px;line-height:1;
+  background:linear-gradient(135deg,#fff 0%,var(--pos) 50%,var(--amber) 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 40px rgba(0,255,213,.15);
+}
+.brand .tag{
+  display:inline-block;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--pos);letter-spacing:3px;border:1px solid rgba(0,255,213,.3);
+  padding:3px 12px;border-radius:2px;background:rgba(0,255,213,.04);
+}
+.stats{display:flex;gap:10px;flex-wrap:wrap}
+.stat{
+  background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:10px 16px;
+  text-align:center;min-width:72px;backdrop-filter:blur(8px);
+  position:relative;overflow:hidden;
+}
+.stat::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,var(--c),transparent);opacity:.06}
+.stat .n{font-family:'Orbitron',sans-serif;font-weight:700;font-size:26px;line-height:1;color:var(--c);text-shadow:0 0 16px var(--cg)}
+.stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);letter-spacing:1px;margin-top:4px;text-transform:uppercase}
+
+/* ============ SECTION TITLE ============ */
+.sec-title{
+  font-family:'Orbitron',sans-serif;font-weight:700;font-size:13px;letter-spacing:4px;
+  color:var(--text-dim);text-transform:uppercase;margin:36px 0 16px;
+  display:flex;align-items:center;gap:14px;
+}
+.sec-title::before{content:"";width:4px;height:18px;background:var(--pos);box-shadow:0 0 10px var(--pos)}
+.sec-title.warn::before{background:var(--neg);box-shadow:0 0 10px var(--neg)}
+
+/* ============ FEEDBACK LOOP ============ */
+.loop-wrap{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.loop-row{
+  display:flex;align-items:stretch;gap:8px;
+}
+.loop-cell{
+  flex:1;min-width:0;background:var(--panel);border:1px solid var(--line-2);
+  border-radius:4px;padding:14px 10px;text-align:center;position:relative;
+  backdrop-filter:blur(8px);transition:all .3s;overflow:hidden;
+}
+.loop-cell::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--c),transparent);
+  opacity:.6;
+}
+.loop-cell .v{font-family:'Orbitron',sans-serif;font-weight:700;font-size:15px;color:var(--c);text-shadow:0 0 12px var(--cg)}
+.loop-cell .d{font-size:10px;color:var(--text-dim);margin-top:3px;letter-spacing:.5px}
+.loop-cell:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 6px 24px -6px var(--cg)}
+.loop-arrow{display:flex;align-items:center;justify-content:center;color:var(--text-faint);font-size:18px;width:24px;flex-shrink:0}
+.loop-arrow.cycle{color:var(--c);font-size:22px}
+.loop-cell.pos{--c:var(--pos);--cg:rgba(0,255,213,.5)}
+.loop-cell.neg{--c:var(--neg);--cg:rgba(255,59,92,.5)}
+.loop-cell.pos{border-top-color:rgba(0,255,213,.4)}
+.loop-cell.neg{border-top-color:rgba(255,59,92,.4)}
+
+/* 循环说明 */
+.loop-note{
+  display:flex;gap:24px;flex-wrap:wrap;margin-top:14px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);
+}
+.loop-note span::before{content:"● ";margin-right:4px}
+.loop-note .p::before{color:var(--pos)}
+.loop-note .n::before{color:var(--neg)}
+
+/* ============ CARDS GRID ============ */
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  padding:22px;position:relative;overflow:hidden;backdrop-filter:blur(10px);
+  transition:all .35s cubic-bezier(.2,.8,.2,1);
+}
+.card::before{
+  content:"";position:absolute;top:0;left:0;width:4px;height:100%;background:var(--ac);box-shadow:0 0 16px var(--ag);
+}
+.card::after{
+  content:"";position:absolute;top:0;right:0;width:120px;height:120px;
+  background:radial-gradient(circle at top right,var(--ag),transparent 70%);opacity:.08;pointer-events:none;
+}
+.card:hover{transform:translateY(-4px);border-color:var(--ac);box-shadow:0 12px 40px -12px var(--ag)}
+.card .num{
+  font-family:'Orbitron',sans-serif;font-weight:900;font-size:12px;color:var(--ac);
+  letter-spacing:3px;margin-bottom:8px;
+}
+.card h3{
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:22px;color:#fff;
+  margin-bottom:16px;display:flex;align-items:center;gap:10px;
+}
+.card h3 .ic{font-size:24px}
+
+/* card content rows */
+.row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:none}
+.row .lab{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);min-width:52px;padding-top:2px;letter-spacing:.5px}
+.row .val{flex:1;font-size:14px;color:var(--text);line-height:1.6}
+.row .val b{color:var(--ac)}
+.row .val .ok{color:var(--green)}
+.row .val .bad{color:var(--neg-2)}
+.row .val .num-big{font-family:'Orbitron',sans-serif;font-weight:700;color:var(--ac)}
+
+/* data strip for DRI */
+.dri-strip{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0;
+}
+.dri-cell{
+  background:rgba(0,0,0,.3);border:1px solid var(--line);border-radius:3px;
+  padding:8px 6px;text-align:center;
+}
+.dri-cell .nm{font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
+.dri-cell .vl{font-family:'Orbitron',sans-serif;font-weight:700;font-size:14px;color:var(--ac);margin-top:2px}
+.dri-cell .un{font-size:9px;color:var(--text-faint)}
+
+/* intensity bar */
+.intensity{display:flex;flex-direction:column;gap:5px;margin:12px 0}
+.int-row{display:flex;align-items:center;gap:10px;font-size:12px}
+.int-row .nm{width:64px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px}
+.int-row .bar{flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.int-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--ac),var(--pos));border-radius:2px;box-shadow:0 0 8px var(--ag)}
+.int-row .num{font-family:'Orbitron',sans-serif;font-weight:700;color:var(--ac);width:32px;text-align:right;font-size:13px}
+
+/* hydration meter */
+.hydro{display:flex;gap:4px;margin:12px 0}
+.hydro .seg{flex:1;height:28px;border-radius:3px;position:relative;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'JetBrains Mono',monospace}
+.hydro .seg.s1{background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.3);color:var(--green)}
+.hydro .seg.s2{background:rgba(255,184,0,.12);border:1px solid rgba(255,184,0,.3);color:var(--amber)}
+.hydro .seg.s3{background:rgba(255,184,0,.18);border:1px solid rgba(255,184,0,.5);color:var(--amber)}
+.hydro .seg.s4{background:rgba(255,59,92,.15);border:1px solid rgba(255,59,92,.4);color:var(--neg-2)}
+
+/* disease list */
+.dis-list{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0}
+.dis{background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:3px;padding:7px 10px;display:flex;align-items:center;gap:8px;font-size:12px}
+.dis .dot{width:7px;height:7px;border-radius:50%;background:var(--ac);box-shadow:0 0 6px var(--ag);flex-shrink:0}
+.dis .nm{color:var(--text)}
+.dis .ca{color:var(--text-faint);font-size:10px;margin-left:auto;font-family:'JetBrains Mono',monospace}
+
+/* stage bar */
+.stages{display:flex;gap:3px;margin:10px 0}
+.stages .stg{flex:1;height:6px;border-radius:2px;background:rgba(255,255,255,.06);position:relative}
+.stages .stg.on{background:linear-gradient(90deg,var(--ac),var(--pos))}
+.stages .stg.on::after{content:attr(data-l);position:absolute;top:-18px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
+
+/* footer */
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);text-align:center}
+footer p{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-faint);letter-spacing:1px}
+footer p b{color:var(--pos)}
+
+/* entrance animation */
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.loop-cell,.card,.stat{animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.stat:nth-child(1){animation-delay:.05s}
+.stat:nth-child(2){animation-delay:.1s}
+.stat:nth-child(3){animation-delay:.15s}
+.stat:nth-child(4){animation-delay:.2s}
+.stat:nth-child(5){animation-delay:.25s}
+.loop-row .loop-cell:nth-child(1){animation-delay:.3s}
+.loop-row .loop-cell:nth-child(2){animation-delay:.35s}
+.loop-row .loop-cell:nth-child(3){animation-delay:.4s}
+.loop-row .loop-cell:nth-child(4){animation-delay:.45s}
+.loop-row .loop-cell:nth-child(5){animation-delay:.5s}
+.card:nth-child(1){animation-delay:.4s}
+.card:nth-child(2){animation-delay:.48s}
+.card:nth-child(3){animation-delay:.56s}
+.card:nth-child(4){animation-delay:.64s}
+
+/* pulse for loop cycle arrows */
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.loop-arrow.cycle{animation:pulse 2s ease-in-out infinite}
+
+/* responsive */
+@media(max-width:780px){
+  .cards{grid-template-columns:1fr}
+  .dri-strip{grid-template-columns:repeat(2,1fr)}
+  .loop-row{flex-wrap:wrap}
+  .loop-arrow{display:none}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand">
+      <h1>REAL METABOLISM</h1>
+      <span class="tag">真实代谢 · 玩法速览</span>
+    </div>
+    <div class="stats">
+      <div class="stat" style="--c:var(--amber);--cg:rgba(255,184,0,.4)"><div class="n">3</div><div class="l">SubSystems</div></div>
+      <div class="stat" style="--c:var(--pos);--cg:rgba(0,255,213,.4)"><div class="n">8</div><div class="l">Micronutrients</div></div>
+      <div class="stat" style="--c:var(--neg);--cg:rgba(255,59,92,.4)"><div class="n">7</div><div class="l">Diseases</div></div>
+      <div class="stat" style="--c:var(--blue);--cg:rgba(56,189,248,.4)"><div class="n">4</div><div class="l">Acute Events</div></div>
+      <div class="stat" style="--c:var(--violet);--cg:rgba(167,139,250,.4)"><div class="n">1</div><div class="l">Core Loop</div></div>
+    </div>
+  </header>
+
+  <!-- CORE FEEDBACK LOOP -->
+  <div class="sec-title">Core Feedback Loop · 核心反馈循环</div>
+  <div class="loop-wrap">
+    <div class="loop-row">
+      <div class="loop-cell pos"><div class="v">营养充足</div><div class="d">r_i ≥ 0.8</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell pos"><div class="v">耐力恢复 ×1.0</div><div class="d">energy ≥ 0.5</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell pos"><div class="v">活动量大</div><div class="d">强度 2.0–7.0</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell pos"><div class="v">消耗更多</div><div class="d">碳水+脂肪</div></div>
+      <div class="loop-arrow cycle pos">↻</div>
+    </div>
+    <div class="loop-row">
+      <div class="loop-cell neg"><div class="v">营养匮乏</div><div class="d">r_i < 0.5</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell neg"><div class="v">耐力恢复 ×0.6</div><div class="d">energy < 0.3</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell neg"><div class="v">活动受限</div><div class="d">耐力上限 −20%</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell neg"><div class="v">肌肉流失</div><div class="d">消瘦病</div></div>
+      <div class="loop-arrow">→</div>
+      <div class="loop-cell neg"><div class="v">代谢更低</div><div class="d">恶性循环</div></div>
+      <div class="loop-arrow cycle neg">↻</div>
+    </div>
+  </div>
+  <div class="loop-note">
+    <span class="p">上行：吃得好 → 有力气动 → 消耗大 → 要吃得更多（良性循环）</span>
+    <span class="n">下行：吃不好 → 没力气动 → 消耗少 → 肌肉流失代谢降（恶性循环）</span>
+  </div>
+
+  <!-- FOUR CARDS -->
+  <div class="sec-title">Gameplay · 四大玩法</div>
+  <div class="cards">
+
+    <!-- ① 吃什么 -->
+    <div class="card" style="--ac:var(--amber);--ag:rgba(255,184,0,.4)">
+      <div class="num">01 / NUTRITION</div>
+      <h3><span class="ic">🍎</span>吃什么</h3>
+      <div class="dri-strip">
+        <div class="dri-cell"><div class="nm">钠</div><div class="vl">2000</div><div class="un">mg</div></div>
+        <div class="dri-cell"><div class="nm">钾</div><div class="vl">3000</div><div class="un">mg</div></div>
+        <div class="dri-cell"><div class="nm">钙</div><div class="vl">1000</div><div class="un">mg</div></div>
+        <div class="dri-cell"><div class="nm">铁</div><div class="vl">15</div><div class="un">mg</div></div>
+        <div class="dri-cell"><div class="nm">维A</div><div class="vl">900</div><div class="un">µg</div></div>
+        <div class="dri-cell"><div class="nm">维C</div><div class="vl">100</div><div class="un">mg</div></div>
+        <div class="dri-cell"><div class="nm">维D</div><div class="vl">15</div><div class="un">µg</div></div>
+        <div class="dri-cell"><div class="nm">B1</div><div class="vl">1.2</div><div class="un">mg</div></div>
+      </div>
+      <div class="row"><div class="lab">热量档</div><div class="val"><span class="num-big">2000 / 2700 / 3400</span> kcal（静息/中度/高强度）</div></div>
+      <div class="row"><div class="lab">⚠ 罐头</div><div class="val">有热量但缺 <b>VC</b> → 长期只吃 → <span class="bad">坏血病</span></div></div>
+      <div class="row"><div class="lab">✓ 解</div><div class="val">新鲜蔬果（<span class="ok">冷藏降解×0.3</span>，冷冻暂停）</div></div>
+      <div class="row"><div class="lab">⚠ 啤酒</div><div class="val">补水 ≈ <b>0</b>，利尿 + 空热量 + 醉酒失温风险</div></div>
+    </div>
+
+    <!-- ② 怎么动 -->
+    <div class="card" style="--ac:var(--blue);--ag:rgba(56,189,248,.4)">
+      <div class="num">02 / EXERCISE</div>
+      <h3><span class="ic">🏃</span>怎么动</h3>
+      <div class="intensity">
+        <div class="int-row"><div class="nm">静息</div><div class="bar"><i style="width:14%"></i></div><div class="num">1.0</div></div>
+        <div class="int-row"><div class="nm">蹲走</div><div class="bar"><i style="width:20%"></i></div><div class="num">1.4</div></div>
+        <div class="int-row"><div class="nm">步行</div><div class="bar"><i style="width:29%"></i></div><div class="num">2.0</div></div>
+        <div class="int-row"><div class="nm">跑步</div><div class="bar"><i style="width:57%"></i></div><div class="num">4.0</div></div>
+        <div class="int-row"><div class="nm">冲刺</div><div class="bar"><i style="width:100%"></i></div><div class="num">7.0</div></div>
+      </div>
+      <div class="row"><div class="lab">燃料</div><div class="val"><b>冲刺</b>烧碳水 · <b>走路</b>烧脂肪 · 空腹枯竭才动蛋白</div></div>
+      <div class="row"><div class="lab">✓ 窗口</div><div class="val">练完 <span class="num-big">4 h</span> 内补蛋白 → 经验收益 <span class="ok">放大</span></div></div>
+      <div class="row"><div class="lab">⚠ 空腹</div><div class="val">硬练 = <span class="bad">白练</span>（恢复质量与经验显著降低）</div></div>
+      <div class="row"><div class="lab">⚠ 过度</div><div class="val">连续高负荷恢复不足 → 成长打折、疲劳加速</div></div>
+    </div>
+
+    <!-- ③ 什么环境 -->
+    <div class="card" style="--ac:var(--green);--ag:rgba(74,222,128,.4)">
+      <div class="num">03 / ENVIRONMENT</div>
+      <h3><span class="ic">🌡️</span>什么环境</h3>
+      <div class="row"><div class="lab">水合池</div><div class="val">连续 <span class="num-big">0 – 100</span>，分钟级衰减</div></div>
+      <div class="hydro">
+        <div class="seg s1">100–60<br>正常</div>
+        <div class="seg s2">60–40<br>口渴</div>
+        <div class="seg s3">40–20<br>耐力↓</div>
+        <div class="seg s4">＜20<br>踉跄</div>
+      </div>
+      <div class="row"><div class="lab">⚠ 高温</div><div class="val">高湿 → 出汗 → <span class="bad">脱水 → 中暑</span>（钠钾也流失）</div></div>
+      <div class="row"><div class="lab">⚠ 低温</div><div class="val">湿衣 + 低温 → <span class="bad">失温</span>（动作变慢、颤抖）</div></div>
+      <div class="row"><div class="lab">✓ 日照</div><div class="val">户外累积 → 合成 <b>维 D</b>（骨质流失的解）</div></div>
+      <div class="row"><div class="lab">脱水≠低钠</div><div class="val">大量出汗后猛灌水 → 水合正常但血钠低 → <span class="bad">电解质紊乱</span>（补盐才是解）</div></div>
+    </div>
+
+    <!-- ④ 会得什么病 -->
+    <div class="card" style="--ac:var(--neg);--ag:rgba(255,59,92,.4)">
+      <div class="num">04 / DISEASE</div>
+      <h3><span class="ic">🦠</span>会得什么病</h3>
+      <div class="row"><div class="lab">触发</div><div class="val">某营养素 <b>7 天均值</b> ＜ 阈值连续 N 天</div></div>
+      <div class="stages">
+        <div class="stg on" data-l="潜伏"></div>
+        <div class="stg on" data-l="轻"></div>
+        <div class="stg on" data-l="中"></div>
+        <div class="stg on" data-l="重"></div>
+      </div>
+      <div class="row"><div class="lab" style="margin-top:14px">恢复</div><div class="val">补充达标连续 M 天 → <span class="ok">逐级下降</span>（可逆转）</div></div>
+      <div class="dis-list">
+        <div class="dis"><div class="dot"></div><span class="nm">坏血病</span><span class="ca">维C</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">贫血</span><span class="ca">铁</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">电解质紊乱</span><span class="ca">钠钾</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">消瘦</span><span class="ca">蛋白</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">夜盲症</span><span class="ca">维A</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">脚气病</span><span class="ca">B1</span></div>
+        <div class="dis"><div class="dot"></div><span class="nm">骨质流失</span><span class="ca">维D/钙</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <p>Real Metabolism · v3 · <b>读原生 · 不接管 · 因果驱动</b></p>
+  </footer>
+
+</div>
+</body>
+</html>

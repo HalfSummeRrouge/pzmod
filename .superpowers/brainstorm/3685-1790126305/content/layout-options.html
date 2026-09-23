@@ -1,0 +1,79 @@
+<h2>精简方案对比</h2>
+<p class="subtitle">目标：ADHD 友好 · 只看玩法 · 去掉工程实现细节</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">方案 A · 单页卡片流（推荐）</div>
+    <div class="mockup-body">
+      <div style="background:#1a1410;border:1px solid #3d3126;padding:12px;margin-bottom:8px;border-left:3px solid #d4a24c">
+        <div style="font-family:monospace;font-size:11px;color:#d4a24c">① 吃什么</div>
+        <div style="font-size:13px;color:#d8c9b4;margin-top:4px">罐头稳供热量但缺 VC → 坏血病<br>新鲜蔬果（冷藏/采集）是解</div>
+      </div>
+      <div style="background:#1a1410;border:1px solid #3d3126;padding:12px;margin-bottom:8px;border-left:3px solid #6a90b8">
+        <div style="font-family:monospace;font-size:11px;color:#6a90b8">② 怎么动</div>
+        <div style="font-size:13px;color:#d8c9b4;margin-top:4px">冲刺烧碳水 / 走路烧脂肪<br>练完4小时内补蛋白→经验翻倍</div>
+      </div>
+      <div style="background:#1a1410;border:1px solid #3d3126;padding:12px;margin-bottom:8px;border-left:3px solid #7fa85b">
+        <div style="font-family:monospace;font-size:11px;color:#7fa85b">③ 什么环境</div>
+        <div style="font-size:13px;color:#d8c9b4;margin-top:4px">高温高湿→出汗→脱水→中暑<br>湿衣+低温→失温</div>
+      </div>
+      <div style="background:#1a1410;border:1px solid #3d3126;padding:12px;border-left:3px solid #c25b4a">
+        <div style="font-family:monospace;font-size:11px;color:#c25b4a">④ 会得什么病</div>
+        <div style="font-size:13px;color:#d8c9b4;margin-top:4px">缺维C→坏血病 / 缺铁→贫血<br>前兆→轻度→中度→重度（可逆转）</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">方案 B · 保留左右双栏，内容瘦身</div>
+    <div class="mockup-body">
+      <div style="display:flex;gap:8px;height:260px">
+        <div style="flex:1;background:#1f1812;border:1px solid #3d3126;padding:10px">
+          <div style="font-family:monospace;font-size:10px;color:#9a8a72;margin-bottom:8px">📖 玩法要点</div>
+          <div style="font-size:12px;color:#d8c9b4;line-height:2">
+            • 营养：8种微量+7种病<br>
+            • 运动：底物燃料+恢复<br>
+            • 环境：水合+4种急症<br>
+            • 饮品：啤酒≠水
+          </div>
+        </div>
+        <div style="flex:1.4;background:#15110d;border:1px solid #3d3126;padding:10px">
+          <div style="font-family:monospace;font-size:10px;color:#9a8a72;margin-bottom:8px">🎯 选中：营养</div>
+          <div style="font-size:12px;color:#d8c9b4;line-height:1.8">
+            缺维C → 坏血病<br>
+            <span style="color:#6b5d4a">伤口愈合↓ 疲劳恢复↓</span><br>
+            解：新鲜蔬果<br><br>
+            缺铁 → 贫血<br>
+            <span style="color:#6b5d4a">耐力上限↓ 眩晕</span><br>
+            解：红肉
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>单页卡片流</h3>
+      <p>一屏看完"吃/动/环境/病"四大玩法，每个只讲因果和解法。最精简，最适合快速浏览。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>左右双栏瘦身</h3>
+      <p>保留原结构但删掉所有 Lua/API/架构内容，左侧列要点、右侧显示选中项的因果细节。</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px;padding:12px;background:rgba(212,162,76,.05);border-left:2px solid #d4a24c">
+  <div class="label">两个方案的共同点</div>
+  <p style="margin:6px 0 0;font-size:13px;color:#d8c9b4">
+    ✂️ 删掉：模块架构、Lua 文件名、API 签名、DRD 决策表、沙盒参数<br>
+    🎯 保留：每个机制的"触发 → 表现 → 解法"三段式
+  </p>
+</div>
