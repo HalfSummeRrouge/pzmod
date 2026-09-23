@@ -191,7 +191,7 @@ v3 设计 §3.1/Spike S3 假设存在可写挂点 `Multiplier.MetabolicRateInc/D
 - 代谢侧的真实可写入口只有两个：**`setMetabolicTarget(Metabolics/float)`** 与 **静态 `setSimulationMultiplier(float)`**。但经调用链核实，二者**影响的是"产热"而非"热量/宏量消耗"**（语义见下，§9.1 已据此更正）。
 - 引擎**不提供**"按比例分别驱动碳水池/脂肪池消耗"的外部接口；`fluidsMultiplier/energyMultiplier/fatigueMultiplier` 只读且内部重算。热量消耗在 [Nutrition.updateCalories:75-115](file:///d:/project/Zedema/zombie/characters/BodyDamage/Nutrition.java#L75-L115) 按真实姿态独立结算；三池按固定速率流失（[Nutrition.java:63-65](file:///d:/project/Zedema/zombie/characters/BodyDamage/Nutrition.java#L63-L65)）。
 
-**实现口径（对应 S3 的降级近似方案）**：
+**实现口径（S3 核实后定稿）**：
 
 1. MOD 自行维护"底物燃料分配"台账：由强度/时长/空腹查表得到碳水/脂肪/蛋白**应燃比例**，作为 MOD 状态记录与 UI 数据（§9.1）。
 2. **不声称能重定向原生宏量消耗**：`setMetabolicTarget`/`setSimulationMultiplier` 只用于环境子系统的冷/热应激**产热**调制（§9.1、§10），不用于燃料切换；不分别改写四池。
@@ -651,7 +651,7 @@ Fitness 偏碳水/有氧，Strength 偏蛋白/盈余；零训练零成长；负�
 ### 20.7 测试与提交
 
 - 纯函数必须可离线单测（Lua 5.1）；涉及存档的改动必须过**往返测试**（§6.4：操作→退主菜单→读档比对；升/降档双向）。
-- Spike 未关闭的 API 只按降级方案编码，标注 `TODO(Sx)`；禁止按未验证假设写死逻辑。
+- **设计优先**：一律先按设计文档定稿方案实现主路径，禁止在实测前预先写降级/兜底分支（防御式缩水）；仅当 Spike 上机实测**确认主路径不可行**后，才改写降级方案，并在代码标注 `TODO(Sx)` 注明降级原因与触发条件。
 - 每个里程碑收尾跑 §17 对应调试清单。
 - 提交粒度：一个功能点一个 commit；schema 破坏性改动单独 commit。
 
