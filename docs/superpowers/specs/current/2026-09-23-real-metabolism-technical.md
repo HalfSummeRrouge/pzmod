@@ -104,7 +104,7 @@ id=RealMetabolism
 description=营养/运动/环境三子系统的真实生理仿真：微量营养、底物燃料、水合、环境急症、训练恢复。
 author=用户 × Trae
 version=0.1.0
-require=NeatUI
+require=NeatUI_Framework
 workshop=3508537032
 ```
 
