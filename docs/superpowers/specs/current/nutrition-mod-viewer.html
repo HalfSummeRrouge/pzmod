@@ -446,7 +446,7 @@ const SECTIONS = [
   { id:'overview', num:'1', title:'项目概述',
     content:`<p>一个 MOD，<strong>三个平级子系统——营养 / 运动 / 环境</strong>——共享一个"代谢核心"，把角色的身体做成一套真实的生理仿真：吃什么、怎么动、在什么天气里待着，共同决定短期状态、长期成长与疾病。</p>
     <h3>1.1 与原版的关系（不变的铁律）</h3>
-    <p>本 MOD 是<strong>调制层，不是第二套引擎</strong>：宏观燃料、体温、体重、酸痛、经验 → <strong>读原生状态、挂原生倍率</strong>，不重算、不接管。MOD 自有状态仅三类：<strong>8 种微量营养素记账、水合池、训练恢复数据</strong>。禁止每秒 <code>setEndurance()/setCalories()/setWeight()</code> 硬写。</p>
+    <p>本 MOD 是<strong>调制层，不是第二套引擎</strong>：宏观燃料、体温、体重、酸痛、经验 → <strong>读原生状态、用原生修饰接口</strong>（宏量池无外部倍率挂点，燃料比例只记 MOD 台账），不重算、不接管。MOD 自有状态仅三类：<strong>8 种微量营养素记账、水合池、训练恢复数据</strong>。禁止每秒 <code>setEndurance()/setCalories()/setWeight()</code> 硬写。</p>
     <h3>1.2 三大子系统</h3>
     <table><tr><th>子系统</th><th>核心命题</th><th>关键机制</th></tr>
     <tr><td>营养</td><td>吃进去的东西决定长期健康</td><td>微量记账、分类降解、7 种缺乏病、饮品药效</td></tr>
@@ -491,7 +491,7 @@ const SECTIONS = [
     <tr><td>热量/碳水/蛋白/脂肪池</td><td>Nutrition.getCalories/Carbs/Proteins/Lipids</td><td>燃料底物判定、体重趋势</td></tr>
     <tr><td>体重与趋势</td><td>getWeight/isIncWeight/isDecWeight</td><td>消瘦判定、负重相关</td></tr>
     <tr><td>核心体温/皮肤温</td><td>Thermoregulator</td><td>冷热应激、中暑失温</td></tr>
-    <tr><td>代谢倍率挂点</td><td>Multiplier.MetabolicRateInc/Dec</td><td>动作/环境能耗调制</td></tr>
+    <tr><td>核心体温/代谢产热</td><td>Thermoregulator: getCoreTemperature 只读；Multiplier 为固定常数无写入口；setMetabolicTarget/setSimulationMultiplier 仅调制产热</td><td>读核心温判定中暑/失温；冷热应激抬产热地板；<strong>宏量池无外部倍率挂点</strong></td></tr>
     <tr><td>锻炼规律性/僵硬</td><td>Fitness / FitnessExercise</td><td>训练负荷与恢复</td></tr>
     <tr><td>耐力</td><td>Fitness.reduceEndurance 路径</td><td>脱水/疾病对耐力的调制</td></tr>
     <tr><td>经验门控</td><td>Nutrition.canAddFitnessXp()</td><td>成长发放前置检查</td></tr></table>
@@ -535,7 +535,7 @@ const SECTIONS = [
 
   { id:'exercise', num:'5', title:'运动子系统',
     content:`<h3>5.1 燃料底物模型</h3>
-    <p>动作<strong>不配置五维扣减向量</strong>。每秒产出两个信号：<strong>强度 I</strong>(0–1) 与 <strong>持续时间 T</strong>。燃料分配由"强度 × 时长 × 空腹状态"查表给出比例，最终体现为对<strong>原生宏量池消耗速率的乘性调制</strong>。</p>
+    <p>动作<strong>不配置五维扣减向量</strong>。每秒产出两个信号：<strong>强度 I</strong>(0–1) 与 <strong>持续时间 T</strong>。燃料分配由"强度 × 时长 × 空腹状态"查表给出比例，<strong>仅写入 MOD 内部台账</strong>（供 UI、成长、疾病、长周期仿真验证）；引擎按真实姿态独立结算宏量消耗，三池固定速率流失，<strong>无外部按底物重定向的入口</strong>，不重写不接管。</p>
     <table><tr><th>场景</th><th>碳水</th><th>脂肪</th><th>蛋白</th></tr>
     <tr><td>冲刺/战斗/攀爬(高强短时)</td><td>高</td><td>低</td><td>≈0</td></tr>
     <tr><td>步行/潜行/劳作(低强长时)</td><td>中→随时长下降</td><td>中→随时长升高</td><td>≈0</td></tr>
@@ -704,7 +704,7 @@ const FLOW = [
 ];
 const FLOW_BRANCH = [
   { title:'代谢核心', sub:'底物燃料切换 × 负荷 × 恢复', src:'RM_Scoring.lua' },
-  { title:'宏量池调制 → 原生体重', sub:'读原生、挂倍率，不接管', src:'RM_Core.lua' },
+  { title:'宏量池(只读) → 原生体重', sub:'读原生四池、燃料只记台账，不重写', src:'RM_Core.lua' },
   { title:'训练负荷/恢复 → XP', sub:'蛋白窗口/超量适应/过度训练', src:'RM_Training.lua' },
   { title:'7天微量评分', sub:'r_i = 净摄入 / DRI', src:'RM_History.lua' },
   { title:'急性环境事件', sub:'池越阈：中暑/失温/痉挛/脱水', src:'RM_Environment.lua' },
@@ -870,7 +870,7 @@ function renderViz(id, secId){
 function renderArch(secId){
   let html = `<div class="diagram-title">
     <span class="tag">ARCH</span><h2>模块架构与依赖</h2>
-    <span class="desc">shared(4) / client(4) / server(9) · NeatUI 硬依赖 · 读原生挂倍率</span>
+    <span class="desc">shared(4) / client(4) / server(9) · NeatUI 硬依赖 · 读原生、修饰耐力、不硬写</span>
   </div>`;
   html += '<div class="arch-grid">';
   ARCH.forEach(g=>{
@@ -962,7 +962,7 @@ function renderFlow(secId){
   });
   html += '</div>';
   html += '</div>';
-  html += '<div class="note">三大子系统汇入代谢核心：动作(燃料切换) + 微量摄入(降解折算) + 水合(饮品药效) + 天气(微气候) → 宏量池调制/训练成长/7天评分/急性事件/营养病。</div>';
+  html += '<div class="note">三大子系统汇入代谢核心：动作(燃料台账) + 微量摄入(降解折算) + 水合(饮品药效) + 天气(微气候) → 训练成长/7天评分/急性事件/营养病；宏量池只读、不重写，引擎按真实姿态独立结算。</div>';
   vizCanvas.innerHTML = html;
   vizCanvas.querySelectorAll('.flow-node').forEach(el=>{
     el.addEventListener('click',()=>{
@@ -1115,7 +1115,7 @@ function renderExercise(secId){
   html += '</table></div>';
   html += '</div>';
 
-  html += '<div class="note">核心：读原生宏量池、挂原生代谢倍率，不重算不接管。蛋白合成窗口(训练后~4h)内补蛋白权重提高；过度训练保护防止肝训练刷级。全部经验发放受 Nutrition.canAddFitnessXp() 门控。</div>';
+  html += '<div class="note">核心：读原生宏量池（只读，引擎按真实姿态独立结算、无外部倍率挂点），燃料比例只记 MOD 台账；耐力走原生修饰接口。蛋白合成窗口(训练后~4h)内补蛋白权重提高；过度训练保护防止肝训练刷级。全部经验发放受 Nutrition.canAddFitnessXp() 门控。</div>';
   vizCanvas.innerHTML = html;
 }
 
@@ -1191,14 +1191,14 @@ function renderScore(secId){
       <div class="branch-card"><div class="bc-cond">低强长时</div><div class="bc-eff">碳水↓ · 脂肪↑ · 蛋白≈0</div></div>
       <div class="branch-card"><div class="bc-cond">空腹+碳水枯竭</div><div class="bc-eff">碳水低 · 脂肪高</div></div>
     </div>
-    <div class="note">燃料比例最终体现为对<strong>原生宏量池消耗速率的乘性调制</strong>（挂点由 Spike 0 S3 确认），不直接 setCalories。</div>
+    <div class="note">燃料比例<strong>仅记入 MOD 内部台账</strong>（UI/成长/疾病/仿真用）；引擎按真实姿态独立结算、三池固定速率流失，无外部倍率挂点；不直接 setCalories。</div>
   </div>`;
 
   // 归一化与防爆
   html += `<div class="score-clamps">
     <h3>归一化与防爆规则</h3>
     <div class="clamp-row"><code>耐力修正 ∈ [ −20% , +20% ]</code><span>总修正钳制，疾病+急性事件叠加不爆表</span></div>
-    <div class="clamp-row"><code>宏量池：只挂倍率，不硬写</code><span>禁止每秒 setCalories/setWeight，走 MetabolicRate 倍率</span></div>
+    <div class="clamp-row"><code>宏量池：只读，不硬写</code><span>禁止每秒 setCalories/setWeight；引擎无外部倍率挂点，燃料只记 MOD 台账</span></div>
     <div class="clamp-row"><code>XP 受 canAddFitnessXp() 门控</code><span>复用原版封顶/特质逻辑，不绕过</span></div>
   </div>`;
 
