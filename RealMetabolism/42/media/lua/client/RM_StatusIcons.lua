@@ -7,6 +7,7 @@
 -- 依赖     : RM_UIAdapter / RM_Theme / shared 只读查询
 -- ============================================================
 RM = RM or {}
+RM.UI = RM.UI or {}          -- 字母序下 RM_UIAdapter 可能晚于本文件加载，先建表
 RM.UI.Icons = {}
 local clamp = RM.Util.clamp
 
