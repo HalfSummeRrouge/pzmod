@@ -1,0 +1,7 @@
+name=Real Metabolism（真实代谢）
+id=RealMetabolism
+description=营养/运动/环境三子系统的真实生理仿真层：微量营养与缺乏病、底物燃料、水合、环境急症、训练恢复。读原生、不接管。
+author=用户 × Trae
+version=0.1.0
+require=NeatUI
+workshop=3508537032
