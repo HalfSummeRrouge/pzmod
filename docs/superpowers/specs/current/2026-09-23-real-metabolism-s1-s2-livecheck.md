@@ -250,36 +250,80 @@ RM.State.fuel
 ## 4. 实测操作剧本（探针版）
 
 > 探针自动采集（§0.5）已覆盖被动观察项；你只需按下面顺序做动作，一个存档跑完 15 项。
+> **取物全用 F11 控制台**：每条命令一行，回车执行；背包里立刻多出该物品。物品 ID 已与本 MOD 食物表核对一致。
 
 **第一段：吃（覆盖 S1-1/2/3/4/6/7 + S2-4）**
 
-1. 吃完一整个苹果（别打断）
-2. 再拿一个苹果：吃一口 → 丢掉剩下的
-3. 再拿一个苹果：吃两口 → 停 → 再吃完（分次）
-4. 吃一罐汤（或任意含水食物）
-5. 找一个腐烂食物吃一次（新鲜/腐烂对照）
+1. 取苹果×3（一条命令给一个，执行 3 次）：
+
+   ```lua
+   getPlayer():getInventory():AddItem("Base.Apple")
+   ```
+
+2. 吃完第一个（别打断）
+3. 第二个：吃一口 → 丢掉剩下的
+4. 第三个：吃两口 → 停 → 再吃完（分次）
+5. 取汤并吃完（S1-4 含水食物）：
+
+   ```lua
+   getPlayer():getInventory():AddItem("Base.CannedSoup")
+   ```
+
+6. 取"腐烂苹果"并吃一次（S1-6：age 拉满即腐烂态；若显示未腐烂，把 50 改成 200 再取一个）：
+
+   ```lua
+   getPlayer():getInventory():AddItem("Base.Apple"):setAge(50)
+   ```
 
 **第二段：喝（S1-5）**
 
-6. 用水瓶/水壶喝两三口水（中途停下），最后一口喝空
+7. 取满水瓶：
+
+   ```lua
+   getPlayer():getInventory():AddItem("Base.WaterBottleFull")
+   ```
+
+   右键分几次"喝水"（中途停下），最后一口喝空。
 
 **第三段：按键（S2-7）**
 
-7. 单按 N 一次；长按 N 一次
+8. 单按 N 一次；长按 N 一次
 
 **第四段：睡（S2-5/S2-6）**
 
-8. 睡到过 0:00，自然醒
+9. 睡到过 0:00，自然醒（无僵尸沙盒任意时刻可睡）
 
 **第五段：池标定（S2-1/2/2-3/8，最费时）**
 
-9. 狂吃高碳水食物（面包/糖/麦片）到吃不下 → 记录时间点
-10. 之后正常活动 2–3 天不进食（加速等待）→ 观察饥饿发展
-11. 期间淋一次雨、在火堆旁站一会儿（S2-8 体温）
+10. 取高碳水食物一批，吃到吃不下：
+
+    ```lua
+    for i = 1, 10 do getPlayer():getInventory():AddItem("Base.Bread") end
+    for i = 1, 10 do getPlayer():getInventory():AddItem("Base.Cereal") end
+    for i = 1, 10 do getPlayer():getInventory():AddItem("Base.Chips") end
+    ```
+
+    吃不动了想继续塞，试下面任一口径重置饥饿（K4：B42 Stats 容器化，哪个能用本身也是实测数据，记下来）：
+
+    ```lua
+    getPlayer():getStats():setHunger(0)
+    ```
+
+    ```lua
+    getPlayer():getStats():set(CharacterStat.HUNGER, 0)
+    ```
+
+11. 之后 2–3 天**完全不进食**，等待期间可做第 12 步（想快：沙盒"一天时长"调短，或睡觉跳时间）
+12. 淋一次雨（等雨或 F11 调试菜单 Weather 改雨）、在篝火旁站一会儿（S2-8 体温；篝火可用 CampfireKit 自建或找现成火堆）：
+
+    ```lua
+    getPlayer():getInventory():AddItem("Base.CampfireKit")
+    ```
 
 **退出后**：把 `Zomboid\RealMetabolismProbe.csv` 全文发我分析。
 
 **注意事项**：
 - 想要干净数据：开新档 + 删旧 `RealMetabolismProbe.csv`
 - 每项数据探针自动落盘，本文档各"步骤"栏的手动 F11 操作仅作交叉验证，可跳过
+- 命令报错（物品改名/Stats 口径不对）不纠缠：改用 F11 调试菜单的物品列表搜中文名拿物品，并顺手把报错截图发我
 - 发现失败项：**不要现场改代码绕过**——按约定先回报，确认方案再动（降级需先问）
