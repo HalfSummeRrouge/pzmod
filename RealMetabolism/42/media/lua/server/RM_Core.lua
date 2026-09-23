@@ -92,6 +92,10 @@ function RM.Core._hookEatActions()
             if ok2 and type(postW) == "number" and postW < preW then
                 item.__rmEatenKg = (item.__rmEatenKg or 0) + (preW - postW)
             end
+            -- S1-1/S2-4 探针：每口重量差 + 池瞬时值
+            if RM.Probe and RM.Probe.bite then
+                pcall(RM.Probe.bite, item, player, preW, postW)
+            end
         end
         return res
     end
@@ -117,6 +121,10 @@ function RM.Core._hookEatActions()
                 -- 传入 gramsEaten 作为 preWeightKg、ratio=100，保持 §8.2 公式成立
                 local ok3 = pcall(RM.Core.onEat, item, player, 100, eaten / 1000.0)
                 if not ok3 then RM.Log.warn("onEat 结算失败，已跳过") end
+                -- S1-2/S1-3/S1-6 探针：本次入口克重 + 判类 + 年龄 + 池
+                if RM.Probe and RM.Probe.eatSettle then
+                    pcall(RM.Probe.eatSettle, item, player, eaten)
+                end
                 item.__rmEatenKg = nil
             end
         end
@@ -152,6 +160,10 @@ function RM.Core._hookDrinkActions()
                 local ml = (preRatio - postRatio) * capacity
                 local okD = pcall(RM.Core.onDrink, player, ml, item)
                 if not okD then RM.Log.warn("onDrink 结算失败，已跳过") end
+                -- S1-5 探针：填充比差值 → ml、容量与单位
+                if RM.Probe and RM.Probe.drink then
+                    pcall(RM.Probe.drink, player, ml, item, capacity, preRatio, postRatio)
+                end
             end
         end
         return res
@@ -178,6 +190,10 @@ function RM.Core._onPlayerUpdate(player)
     local dtSec = dtHours * 3600.0
     local steps = math.floor(dtSec)
     if steps > RM.Core._maxCatchupSteps then steps = RM.Core._maxCatchupSteps end
+    -- S2-5 探针：时间加速/防螺旋触顶时记录（内部按 10 游戏分钟节流）
+    if RM.Probe and RM.Probe.clock then
+        pcall(RM.Probe.clock, dtHours, steps, math.floor(dtSec) > RM.Core._maxCatchupSteps)
+    end
     local frac = dtSec - math.floor(dtSec)
     if steps <= 0 then
         -- 不足 1 游戏秒的余量累积到下一次（用部分步长保精度）
@@ -200,6 +216,10 @@ function RM.Core._tickSecond(player, dtSec)
         if not md then return end
         RM.Hydration.tick(player, md, dtSec)
         RM.Fuel.tick(player, md, dtSec)
+        -- S2-1/S2-2/S2-3/S2-8 探针：原生池/体温定时采样（内部节流）
+        if RM.Probe and RM.Probe.sample then
+            pcall(RM.Probe.sample, player, md, dtSec)
+        end
         RM.Core._applyModifiers(player)
 
         RM.State.saveAccumSec = RM.State.saveAccumSec + dtSec
@@ -281,6 +301,10 @@ function RM.Core._onEveryDays()
         local p = getPlayer()
         local day = RM.Core._dayIndex()
         if p and day then RM.History.settle(p, day) end
+        -- S2-6 探针：EveryDays 触发与结算推进（含睡眠期）
+        if p and day and RM.Probe and RM.Probe.everydays then
+            pcall(RM.Probe.everydays, p, day)
+        end
     end)
 end
 
@@ -302,6 +326,10 @@ function RM.Core.attach(player)
     -- Hook 只装一次（§16.3）
     RM.Core._hookEatActions()
     RM.Core._hookDrinkActions()
+    -- 探针会话标记：每次 attach 写一行（含读档）
+    if RM.Probe and RM.Probe.session then
+        pcall(RM.Probe.session, "attach")
+    end
     RM.Log.debug("attach 完成: hydration=" .. tostring(md.hydration))
 end
 

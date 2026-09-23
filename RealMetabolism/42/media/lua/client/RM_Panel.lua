@@ -90,6 +90,10 @@ function RM.Panel._onKey(key)
     local target = RM.Panel._resolveKeycode()
     if target and key == target then
         RM.Panel.toggle()
+        -- S2-7 探针：按键触发次数与开关态（验证单次翻转）
+        if RM.Probe and RM.Probe.key then
+            pcall(RM.Probe.key, key, RM.Panel._open)
+        end
     end
 end
 

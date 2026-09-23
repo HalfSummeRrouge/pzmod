@@ -48,7 +48,14 @@ function RM.Hydration.onConsumeFood(item, player, ratio)
     if not ok or type(tc) ~= "number" or tc >= 0 then return end
     local quench = -tc * (ratio / 100.0)
     local ml = quench * RM.Config.hydration.thirstUnitMl
-    if ml > 0 then RM.Data.addWater(player, ml, 1.0) end
+    if ml > 0 then
+        local hydBefore = RM.State.live.hydration
+        RM.Data.addWater(player, ml, 1.0)
+        -- S1-4 探针：ThirstChange → quenchU → ml → 水合前后
+        if RM.Probe and RM.Probe.hydrate then
+            pcall(RM.Probe.hydrate, item, player, tc, quench, ml, hydBefore)
+        end
+    end
 end
 
 -- UI 只读查询

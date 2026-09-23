@@ -41,6 +41,7 @@ dofile(BASEDIR .. "/RM_Config.lua")
 dofile(BASEDIR .. "/RM_DataLayer.lua")
 dofile(BASEDIR .. "/RM_Scoring.lua")
 dofile(BASEDIR .. "/RM_History.lua")
+dofile(BASEDIR .. "/RM_Probe.lua")
 
 print("== 加载 client + server（桩环境） ==")
 dofile(BASEDIR .. "/RM_Config.lua") -- 幂等重入确认
@@ -60,6 +61,7 @@ local tests = {
     "test_history.lua",
     "test_persist.lua",
     "test_panel_icons.lua",
+    "test_probe.lua",
 }
 for i = 1, #tests do
     print("-- " .. tests[i])

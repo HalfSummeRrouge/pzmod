@@ -101,4 +101,10 @@ RM.Config = {
         toggleKeyName = "KEY_N",   -- 面板开关键（OnKeyKeepPressed 解析；ModOptions 可改键 TODO(S2)）
         refreshMs = 250,            -- 面板可见时最小刷新间隔
     },
+
+    -- ---------------- 实测探针（S1/S2 上机采集，见 livecheck 文档；M4 发布前移除）----------------
+    probe = {
+        enabled = true,            -- 自动采集到 Zomboid 用户目录 RealMetabolismProbe.csv
+        sampleEveryGameSec = 60,   -- 原生池/体温 采样间隔（游戏秒）
+    },
 }
