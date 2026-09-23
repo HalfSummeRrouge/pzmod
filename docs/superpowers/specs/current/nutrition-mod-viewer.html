@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Real Metabolism · 真实代谢 MOD 逻辑查看器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=JetBrains+Mono:wght@400;500;700&family=Noto+Serif+SC:wght@400;600;900&display=swap" rel="stylesheet">
+<style>
+/* ============ SURVIVAL TECHNICAL MANUAL 主题 ============ */
+:root{
+  --bg:#15110d;
+  --bg-2:#1f1812;
+  --bg-3:#2a211a;
+  --panel:#221a13;
+  --panel-2:#2c231b;
+  --line:#3d3126;
+  --line-2:#5a4736;
+  --text:#d8c9b4;
+  --text-dim:#9a8a72;
+  --text-faint:#6b5d4a;
+  --amber:#d4a24c;
+  --amber-2:#f0c060;
+  --green:#7fa85b;
+  --green-2:#a0c970;
+  --red:#c25b4a;
+  --red-2:#e0735f;
+  --blue:#6a90b8;
+  --paper:#c9b896;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Noto Serif SC',serif;
+  font-size:14px;
+  line-height:1.7;
+  display:flex;
+  flex-direction:column;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(212,162,76,.04), transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(127,168,91,.03), transparent 50%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.03) 3px);
+}
+/* grain overlay */
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ============ HEADER ============ */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,var(--bg-2),var(--bg));
+  flex-shrink:0;
+}
+header .brand{display:flex;align-items:center;gap:14px}
+header .logo{
+  width:34px;height:34px;border:2px solid var(--amber);border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Special Elite',monospace;font-size:18px;color:var(--amber-2);
+  background:rgba(212,162,76,.08);
+  box-shadow:0 0 12px rgba(212,162,76,.15) inset;
+}
+header h1{
+  font-family:'Special Elite',monospace;font-size:16px;letter-spacing:1.5px;
+  color:var(--amber-2);text-transform:uppercase;
+}
+header .sub{font-size:11px;color:var(--text-faint);letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+header .meta{display:flex;gap:18px;align-items:center}
+header .stat{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim)}
+header .stat b{color:var(--green-2);font-weight:700}
+
+/* ============ MAIN SPLIT ============ */
+main{flex:1;display:flex;overflow:hidden}
+
+/* ---- LEFT: DOC PANE ---- */
+.doc-pane{
+  width:42%;min-width:360px;max-width:560px;
+  display:flex;flex-direction:column;
+  border-right:1px solid var(--line);
+  background:var(--bg-2);
+}
+.doc-tabs{
+  display:flex;border-bottom:1px solid var(--line);flex-shrink:0;
+  background:var(--bg-3);
+}
+.doc-tab{
+  padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--text-dim);cursor:pointer;letter-spacing:1px;
+  border-right:1px solid var(--line);
+  transition:all .2s;
+}
+.doc-tab.active{color:var(--amber-2);background:var(--bg-2);border-bottom:2px solid var(--amber)}
+.doc-tab:hover{color:var(--text)}
+.doc-body{flex:1;overflow-y:auto;padding:20px 24px}
+.doc-body::-webkit-scrollbar{width:8px}
+.doc-body::-webkit-scrollbar-track{background:var(--bg)}
+.doc-body::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:0}
+
+/* doc outline nav */
+.outline{margin-bottom:24px;padding:14px 16px;background:var(--panel);border:1px solid var(--line)}
+.outline h3{font-family:'Special Elite',monospace;font-size:11px;color:var(--amber);letter-spacing:2px;margin-bottom:10px;text-transform:uppercase}
+.outline ol{list-style:none;counter-reset:sec}
+.outline li{counter-increment:sec;padding:4px 0 4px 24px;position:relative;cursor:pointer;color:var(--text-dim);font-size:13px;transition:all .15s}
+.outline li::before{content:counter(sec)".";position:absolute;left:0;font-family:'JetBrains Mono',monospace;color:var(--text-faint);font-size:11px}
+.outline li:hover{color:var(--text);background:rgba(212,162,76,.05)}
+.outline li.active{color:var(--amber-2)}
+.outline li.active::before{color:var(--amber)}
+
+/* doc sections */
+.doc-section{margin-bottom:36px;scroll-margin-top:16px}
+.doc-section .sec-num{
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);
+  letter-spacing:2px;margin-bottom:4px;
+}
+.doc-section h2{
+  font-family:'Noto Serif SC',serif;font-weight:900;font-size:20px;
+  color:var(--paper);margin-bottom:14px;padding-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+.doc-section h3{font-size:15px;color:var(--amber-2);margin:18px 0 8px;font-weight:600}
+.doc-section h4{font-size:13px;color:var(--green-2);margin:14px 0 6px;font-weight:600}
+.doc-section p{margin:8px 0;color:var(--text)}
+.doc-section ul,.doc-section ol{margin:8px 0 8px 22px}
+.doc-section li{margin:3px 0;color:var(--text-dim)}
+.doc-section table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px}
+.doc-section th,.doc-section td{border:1px solid var(--line);padding:5px 9px;text-align:left}
+.doc-section th{background:var(--bg-3);color:var(--amber);font-weight:600}
+.doc-section td{color:var(--text-dim)}
+.doc-section code{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:var(--bg);padding:1px 5px;color:var(--green-2);border:1px solid var(--line);
+}
+.doc-section pre{
+  background:var(--bg);border:1px solid var(--line);padding:12px;
+  margin:10px 0;overflow-x:auto;font-size:11px;
+}
+.doc-section pre code{background:none;border:none;padding:0;color:var(--text)}
+.doc-section blockquote{
+  border-left:2px solid var(--amber);background:rgba(212,162,76,.04);
+  padding:8px 14px;margin:10px 0;color:var(--text-dim);font-style:italic;
+}
+
+/* highlight active section */
+.doc-section.flash{animation:flash .8s ease}
+@keyframes flash{0%{background:rgba(212,162,76,.15)}100%{background:transparent}}
+
+/* ---- RIGHT: VIZ PANE ---- */
+.viz-pane{flex:1;display:flex;flex-direction:column;background:var(--bg)}
+.viz-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;border-bottom:1px solid var(--line);
+  background:var(--bg-2);flex-shrink:0;
+}
+.viz-tabs{display:flex}
+.viz-tab{
+  padding:11px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:var(--text-faint);cursor:pointer;letter-spacing:1px;
+  border-bottom:2px solid transparent;transition:all .2s;
+}
+.viz-tab.active{color:var(--amber-2);border-bottom-color:var(--amber)}
+.viz-tab:hover{color:var(--text)}
+.viz-tab .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--text-faint);margin-right:6px;vertical-align:middle}
+.viz-tab.active .dot{background:var(--green);box-shadow:0 0 6px var(--green)}
+.viz-legend{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);display:flex;gap:14px}
+.viz-legend span{display:flex;align-items:center;gap:5px}
+.viz-legend i{width:10px;height:10px;display:inline-block;border:1px solid var(--line)}
+
+.viz-canvas{flex:1;overflow:auto;padding:24px;position:relative}
+.viz-canvas::-webkit-scrollbar{width:10px;height:10px}
+.viz-canvas::-webkit-scrollbar-track{background:var(--bg)}
+.viz-canvas::-webkit-scrollbar-thumb{background:var(--line-2)}
+
+/* diagram title bar */
+.diagram-title{
+  display:flex;align-items:baseline;gap:12px;margin-bottom:20px;
+}
+.diagram-title .tag{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bg);
+  background:var(--amber);padding:2px 8px;letter-spacing:1px;
+}
+.diagram-title h2{font-family:'Noto Serif SC',serif;font-size:18px;color:var(--paper);font-weight:900}
+.diagram-title .desc{font-size:12px;color:var(--text-faint);margin-left:auto}
+
+/* ============ DIAGRAM: MODULE ARCHITECTURE ============ */
+.arch-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+}
+.arch-group{
+  background:var(--panel);border:1px solid var(--line);
+  padding:14px;position:relative;
+}
+.arch-group .group-label{
+  position:absolute;top:-9px;left:12px;background:var(--bg-2);
+  padding:0 8px;font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--amber);letter-spacing:1px;
+}
+.arch-module{
+  background:var(--bg-3);border:1px solid var(--line-2);
+  padding:10px 12px;margin-bottom:8px;cursor:pointer;
+  transition:all .2s;position:relative;
+}
+.arch-module:last-child{margin-bottom:0}
+.arch-module:hover{border-color:var(--amber);transform:translateX(2px)}
+.arch-module.active{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.arch-module .m-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);font-weight:700}
+.arch-module .m-desc{font-size:11px;color:var(--text-faint);margin-top:3px;line-height:1.4}
+.arch-module .m-layer{
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green-2);
+  margin-top:4px;letter-spacing:1px;
+}
+
+/* dependency arrows */
+.arch-deps{margin-top:20px;display:flex;flex-direction:column;gap:6px}
+.dep-row{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim)}
+.dep-row .from{color:var(--blue)}
+.dep-row .arrow{color:var(--text-faint)}
+.dep-row .to{color:var(--green-2)}
+
+/* ============ DIAGRAM: DATA FLOW ============ */
+.flow-wrap{display:flex;flex-direction:column;gap:18px}
+.flow-row{display:flex;align-items:stretch;gap:0}
+.flow-node{
+  flex:1;background:var(--panel);border:1px solid var(--line-2);
+  padding:14px;text-align:center;cursor:pointer;transition:all .2s;position:relative;
+}
+.flow-node:hover{border-color:var(--amber)}
+.flow-node.active{border-color:var(--amber);box-shadow:0 0 12px rgba(212,162,76,.2)}
+.flow-node .fn-title{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--amber-2);font-weight:700;margin-bottom:4px}
+.flow-node .fn-sub{font-size:11px;color:var(--text-dim)}
+.flow-node .fn-src{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);margin-top:6px}
+.flow-arrow{
+  width:40px;display:flex;align-items:center;justify-content:center;
+  color:var(--text-faint);font-size:18px;flex-shrink:0;
+}
+.flow-arrow.down{width:auto;height:28px;flex-direction:column;font-size:12px}
+
+/* ============ DIAGRAM: EVENT TIMELINE ============ */
+.timeline{position:relative;padding-left:30px}
+.timeline::before{
+  content:"";position:absolute;left:10px;top:0;bottom:0;width:2px;
+  background:linear-gradient(180deg,var(--amber),var(--line-2),var(--green));
+}
+.ev-item{position:relative;padding:0 0 22px 0}
+.ev-item::before{
+  content:"";position:absolute;left:-25px;top:5px;width:12px;height:12px;
+  border:2px solid var(--bg);background:var(--amber);border-radius:50%;
+}
+.ev-item.trigger::before{background:var(--red)}
+.ev-item.daily::before{background:var(--blue)}
+.ev-item.client::before{background:var(--green)}
+.ev-card{
+  background:var(--panel);border:1px solid var(--line);padding:12px 16px;
+  cursor:pointer;transition:all .2s;
+}
+.ev-card:hover{border-color:var(--amber);transform:translateX(3px)}
+.ev-card.active{border-color:var(--amber)}
+.ev-card .ev-event{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--amber-2);font-weight:700}
+.ev-card .ev-type{
+  font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--bg);
+  padding:1px 6px;margin-left:8px;letter-spacing:1px;
+}
+.ev-card .ev-type.trigger{background:var(--red)}
+.ev-card .ev-type.daily{background:var(--blue)}
+.ev-card .ev-type.client{background:var(--green)}
+.ev-card .ev-desc{font-size:12px;color:var(--text-dim);margin-top:4px}
+.ev-card .ev-mod{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green-2);margin-top:6px}
+
+/* ============ DIAGRAM: DISEASE SYSTEM ============ */
+.disease-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.disease-card{
+  background:var(--panel);border:1px solid var(--line);padding:14px;
+  cursor:pointer;transition:all .2s;border-left:3px solid var(--red);
+}
+.disease-card:hover{border-color:var(--amber);transform:translateY(-2px)}
+.disease-card.active{border-color:var(--amber);box-shadow:0 0 12px rgba(212,162,76,.2)}
+.disease-card .d-name{font-size:14px;font-weight:700;color:var(--paper);margin-bottom:4px}
+.disease-card .d-nutri{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red-2);margin-bottom:8px}
+.disease-card .d-stage{display:flex;gap:4px;margin-bottom:8px}
+.disease-card .stage-dot{flex:1;height:6px;background:var(--bg-3);border:1px solid var(--line);text-align:center;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-faint);line-height:6px}
+.disease-card .d-symptom{font-size:11px;color:var(--text-dim);line-height:1.5}
+
+.disease-flow{
+  margin-top:20px;padding:16px;background:var(--panel);border:1px solid var(--line);
+  font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);line-height:2;
+}
+.disease-flow b{color:var(--amber-2)}
+.disease-flow .good{color:var(--green-2)}
+.disease-flow .bad{color:var(--red-2)}
+
+/* ============ DIAGRAM: EXERCISE & GROWTH ============ */
+.ex-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ex-block{background:var(--panel);border:1px solid var(--line);padding:16px}
+.ex-block h3{font-size:13px;color:var(--amber-2);margin-bottom:10px;font-weight:600}
+.ex-table{width:100%;border-collapse:collapse;font-size:11px}
+.ex-table th,.ex-table td{border:1px solid var(--line);padding:5px 8px;text-align:left}
+.ex-table th{background:var(--bg-3);color:var(--amber);font-weight:600;font-size:10px}
+.ex-table td{color:var(--text-dim)}
+.bar{height:6px;background:var(--bg-3);position:relative;margin-top:3px}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--amber))}
+
+.growth-matrix{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.gm-cell{
+  background:var(--bg-3);border:1px solid var(--line);padding:10px;
+  font-size:11px;position:relative;
+}
+.gm-cell .gm-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);letter-spacing:1px;margin-bottom:4px}
+.gm-cell .gm-val{font-weight:700;font-size:12px}
+.gm-cell.pos .gm-val{color:var(--green-2)}
+.gm-cell.neg .gm-val{color:var(--red-2)}
+.gm-cell .gm-arrow{font-size:14px;margin-right:4px}
+
+/* ============ DIAGRAM: SCORE FORMULA ============ */
+.score-steps{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.score-step{display:flex;background:var(--panel);border:1px solid var(--line);cursor:pointer;transition:all .2s}
+.score-step:hover{border-color:var(--amber)}
+.score-step.active{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+.score-step .ss-num{width:58px;background:var(--bg-3);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
+.score-step .ss-num .n{font-family:'JetBrains Mono',monospace;font-size:22px;color:var(--amber-2);font-weight:700;line-height:1}
+.score-step .ss-num .t{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--text-faint);letter-spacing:2px;margin-top:3px}
+.score-step .ss-body{padding:12px 16px}
+.score-step .ss-title{font-size:14px;color:var(--paper);font-weight:700}
+.score-step .ss-formula{
+  display:block;font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--amber-2);
+  background:var(--bg);border:1px solid var(--line-2);border-left:3px solid var(--amber);
+  padding:8px 16px;margin:8px 0;letter-spacing:.5px;
+}
+.score-step .ss-desc{font-size:11px;color:var(--text-dim);line-height:1.7}
+
+.score-lab-wrap{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.score-lab,.score-curve{background:var(--panel);border:1px solid var(--line);padding:16px}
+.score-lab h3,.score-curve h3,.score-branch h3,.score-clamps h3{font-size:13px;color:var(--amber-2);margin-bottom:12px;font-weight:600}
+.lab-slider{margin-bottom:12px}
+.lab-slider label{display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);margin-bottom:5px;font-family:'JetBrains Mono',monospace}
+.lab-slider label b{color:var(--amber-2)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--line-2);outline:none;border-radius:2px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:16px;height:16px;background:var(--amber);border:3px solid var(--bg-2);border-radius:50%;cursor:pointer;box-shadow:0 0 0 1px var(--amber)}
+input[type=range]::-moz-range-thumb{width:12px;height:12px;background:var(--amber);border:2px solid var(--bg-2);border-radius:50%;cursor:pointer}
+.lab-results{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:14px}
+.lr{background:var(--bg-3);border:1px solid var(--line);padding:8px 12px;display:flex;justify-content:space-between;align-items:center}
+.lr span{font-size:10px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
+.lr b{font-family:'JetBrains Mono',monospace;font-size:15px}
+.lr b.pos{color:var(--green-2)}
+.lr b.neg{color:var(--red-2)}
+.lr b.zero{color:var(--text-dim)}
+
+.curve-legend{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-faint);margin-top:8px;padding:0 8px}
+
+.score-branch{background:var(--panel);border:1px solid var(--line);padding:16px;margin-bottom:16px}
+.branch-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.branch-card{background:var(--bg-3);border:1px solid var(--line);padding:12px;text-align:center;opacity:.4;transition:all .25s}
+.branch-card.on{opacity:1;border-color:var(--amber);box-shadow:0 0 10px rgba(212,162,76,.15)}
+.branch-card .bc-cond{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--paper);font-weight:700;margin-bottom:4px}
+.branch-card .bc-eff{font-size:11px;color:var(--text-dim)}
+
+.score-clamps{background:var(--panel);border:1px solid var(--line);padding:16px}
+.clamp-row{display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.clamp-row:last-child{border-bottom:none}
+.clamp-row code{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--green-2);background:var(--bg);padding:3px 10px;border:1px solid var(--line);min-width:230px;text-align:center}
+.clamp-row span{font-size:11px;color:var(--text-dim)}
+
+/* ============ SVG sparkline for trend ============ */
+.spark-wrap{margin-top:8px}
+.spark-wrap svg{width:100%;height:30px}
+
+/* ============ UTIL ============ */
+.hidden{display:none!important}
+.divider{height:1px;background:var(--line);margin:16px 0}
+.note{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-faint);
+  padding:8px 12px;background:var(--bg);border-left:2px solid var(--blue);margin-top:12px;
+}
+
+/* responsive */
+@media(max-width:1100px){
+  .doc-pane{width:45%}
+  .disease-grid,.ex-grid,.score-lab-wrap,.branch-cards{grid-template-columns:1fr}
+  .arch-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">R</div>
+    <div>
+      <h1>Real Metabolism · 真实代谢 MOD 逻辑查看器</h1>
+      <div class="sub">PROJECT ZOMBOID BUILD 42 &nbsp;//&nbsp; v3 三大子系统超集（取代 v2）</div>
+    </div>
+  </div>
+  <div class="meta">
+    <div class="stat">子系统 <b>3</b></div>
+    <div class="stat">模块 <b>17</b></div>
+    <div class="stat">营养病 <b>7</b></div>
+    <div class="stat">急性事件 <b>4</b></div>
+  </div>
+</header>
+
+<main>
+  <!-- ============ LEFT: DOCUMENT ============ -->
+  <div class="doc-pane">
+    <div class="doc-tabs">
+      <div class="doc-tab active" data-view="outline">目录</div>
+      <div class="doc-tab" data-view="content">全文</div>
+    </div>
+    <div class="doc-body" id="docBody">
+      <div class="outline" id="outlineBox">
+        <h3>章节导航</h3>
+        <ol id="outlineList"></ol>
+      </div>
+      <div id="docContent"></div>
+    </div>
+  </div>
+
+  <!-- ============ RIGHT: VISUALIZATION ============ -->
+  <div class="viz-pane">
+    <div class="viz-header">
+      <div class="viz-tabs" id="vizTabs">
+        <div class="viz-tab active" data-viz="arch"><span class="dot"></span>模块架构</div>
+        <div class="viz-tab" data-viz="flow"><span class="dot"></span>数据流</div>
+        <div class="viz-tab" data-viz="score"><span class="dot"></span>代谢核心</div>
+        <div class="viz-tab" data-viz="events"><span class="dot"></span>事件挂接</div>
+        <div class="viz-tab" data-viz="disease"><span class="dot"></span>疾病与急性事件</div>
+        <div class="viz-tab" data-viz="exercise"><span class="dot"></span>运动与环境</div>
+      </div>
+      <div class="viz-legend">
+        <span><i style="background:var(--amber)"></i>shared</span>
+        <span><i style="background:var(--green)"></i>client</span>
+        <span><i style="background:var(--blue)"></i>server</span>
+        <span><i style="background:var(--red)"></i>NeatUI 硬依赖</span>
+      </div>
+    </div>
+    <div class="viz-canvas" id="vizCanvas"></div>
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   设计文档数据（来自 2026-09-22-real-metabolism-design.md · v3）
+   ============================================================ */
+const SECTIONS = [
+  { id:'overview', num:'1', title:'项目概述',
+    content:`<p>一个 MOD，<strong>三个平级子系统——营养 / 运动 / 环境</strong>——共享一个"代谢核心"，把角色的身体做成一套真实的生理仿真：吃什么、怎么动、在什么天气里待着，共同决定短期状态、长期成长与疾病。</p>
+    <h3>1.1 与原版的关系（不变的铁律）</h3>
+    <p>本 MOD 是<strong>调制层，不是第二套引擎</strong>：宏观燃料、体温、体重、酸痛、经验 → <strong>读原生状态、挂原生倍率</strong>，不重算、不接管。MOD 自有状态仅三类：<strong>8 种微量营养素记账、水合池、训练恢复数据</strong>。禁止每秒 <code>setEndurance()/setCalories()/setWeight()</code> 硬写。</p>
+    <h3>1.2 三大子系统</h3>
+    <table><tr><th>子系统</th><th>核心命题</th><th>关键机制</th></tr>
+    <tr><td>营养</td><td>吃进去的东西决定长期健康</td><td>微量记账、分类降解、7 种缺乏病、饮品药效</td></tr>
+    <tr><td>运动</td><td>怎么动决定烧什么燃料、长不长本事</td><td>生理底物燃料切换、训练负荷、恢复与超量适应</td></tr>
+    <tr><td>环境</td><td>天气和着装决定消耗速度与急性风险</td><td>温度/湿度/湿身/日照、水合、急性环境事件</td></tr></table>
+    <h3>1.3 里程碑</h3>
+    <ul>
+    <li><strong>Spike 0</strong>：B42 API + NeatUI + 饮品数据验证</li>
+    <li><strong>M1 代谢核心</strong>：代谢核心、微量记账、水合池、生理底物燃料、UI 框架</li>
+    <li><strong>M2 运动与环境</strong>：湿度/湿身/日照、急性事件、饮品药效、训练恢复</li>
+    <li><strong>M3 降解与疾病</strong>：食物分类降解、7 种营养缺乏病</li>
+    <li><strong>M4 平衡打磨</strong>："生理人"长周期仿真、数值调优</li>
+    </ul>` },
+
+  { id:'principles', num:'2', title:'设计原则与 DRD',
+    content:`<h3>2.1 设计原则</h3>
+    <ol>
+    <li><strong>生理因果优先</strong>：每个效果都能回答"因为身体发生了什么"。冲刺不消耗维生素；啤酒不能真正解渴。</li>
+    <li><strong>连续过程用池子，长期失衡用阶梯</strong>：水分/燃料/体温是连续状态，营养缺乏病才走多日状态机。</li>
+    <li><strong>数据驱动</strong>：燃料曲线、降解速率、饮品系数、疾病表、环境修正全部集中配置。</li>
+    <li><strong>有前兆、可逆转、有解法</strong>：致命效果前必须有预警，且游戏经济中存在对策。</li>
+    <li><strong>先验证后实现</strong>：Spike 0 关闭前不写业务逻辑。</li>
+    <li><strong>依赖隔离</strong>：NeatUI 只出现在适配层，业务代码不直接调用。</li>
+    </ol>
+    <h3>2.2 需求决策记录（DRD）</h3>
+    <table><tr><th>#</th><th>决策点</th><th>决定</th></tr>
+    <tr><td>1</td><td>动作消耗模型</td><td><strong>生理底物模型</strong>：强度×时长×空腹切换燃料；微量不进动作消耗</td></tr>
+    <tr><td>2</td><td>保质期营养流失</td><td><strong>分类降解曲线</strong>：每类营养独立速率</td></tr>
+    <tr><td>3</td><td>环境深度</td><td>温度+湿度+湿身+日照；风速不做</td></tr>
+    <tr><td>4</td><td>水分</td><td><strong>新增水合状态一维</strong>；脱水与低钠分开判定</td></tr>
+    <tr><td>5</td><td>急性环境问题</td><td>连续池+阈值急性事件，不入营养病状态机</td></tr>
+    <tr><td>6</td><td>运动系统范围</td><td>消耗+恢复+适应全做，挂原生酸痛/规律性</td></tr>
+    <tr><td>7</td><td>疾病表现</td><td>自定义 Vanilla 风格角落状态图标（四阶段）</td></tr>
+    <tr><td>8</td><td>MOD 定位</td><td>升级为 <strong>Real Metabolism</strong>，三子系统一个 MOD</td></tr>
+    <tr><td>9</td><td>饮品</td><td>完整真实药效：酒精/咖啡因/糖分，数据驱动</td></tr>
+    <tr><td>附</td><td>UI 框架</td><td><strong>NeatUI Framework [B42] 硬依赖</strong>（Workshop 3508537032）</td></tr>
+    </table>` },
+
+  { id:'state', num:'3', title:'状态量总览',
+    content:`<h3>3.1 读原生（MOD 不持有副本）</h3>
+    <table><tr><th>原生状态</th><th>API</th><th>MOD 用途</th></tr>
+    <tr><td>热量/碳水/蛋白/脂肪池</td><td>Nutrition.getCalories/Carbs/Proteins/Lipids</td><td>燃料底物判定、体重趋势</td></tr>
+    <tr><td>体重与趋势</td><td>getWeight/isIncWeight/isDecWeight</td><td>消瘦判定、负重相关</td></tr>
+    <tr><td>核心体温/皮肤温</td><td>Thermoregulator</td><td>冷热应激、中暑失温</td></tr>
+    <tr><td>代谢倍率挂点</td><td>Multiplier.MetabolicRateInc/Dec</td><td>动作/环境能耗调制</td></tr>
+    <tr><td>锻炼规律性/僵硬</td><td>Fitness / FitnessExercise</td><td>训练负荷与恢复</td></tr>
+    <tr><td>耐力</td><td>Fitness.reduceEndurance 路径</td><td>脱水/疾病对耐力的调制</td></tr>
+    <tr><td>经验门控</td><td>Nutrition.canAddFitnessXp()</td><td>成长发放前置检查</td></tr></table>
+    <h3>3.2 MOD 自有状态</h3>
+    <table><tr><th>状态</th><th>类型</th><th>说明</th></tr>
+    <tr><td>微量 8 项</td><td>每日摄入+7天历史</td><td>钠/钾/钙/铁/维A/维C/维D/B1</td></tr>
+    <tr><td>水合池 hydration</td><td>连续 0–100%</td><td>分钟级衰减</td></tr>
+    <tr><td>钠钾出汗流失累计</td><td>当日累计</td><td>每日并入微量评分</td></tr>
+    <tr><td>能量反馈状态</td><td>连续 0–1</td><td>派生自原生碳水/热量池水平</td></tr>
+    <tr><td>训练负荷/恢复</td><td>结构化</td><td>日负荷、恢复债、过度训练标记</td></tr>
+    <tr><td>环境暴露记录</td><td>当日</td><td>湿身时长、户外日照时长、高温暴露</td></tr>
+    <tr><td>疾病等级 ×7</td><td>0–3 状态机</td><td>营养缺乏病</td></tr>
+    <tr><td>急性事件标记</td><td>短时事件</td><td>中暑/失温/痉挛等</td></tr></table>` },
+
+  { id:'nutrition', num:'4', title:'营养子系统',
+    content:`<h3>4.1 营养素与需求</h3>
+    <p>宏量读原生（4/4/9 kcal/g 换算），需求按活动档（TDEE 2000/2700/3400）。微量 DRI：</p>
+    <table><tr><th>微量</th><th>DRI/日</th><th>主要流失渠道</th><th>缺乏病</th></tr>
+    <tr><td>钠</td><td>2000mg</td><td>出汗、排尿</td><td>电解质紊乱</td></tr>
+    <tr><td>钾</td><td>3000mg</td><td>出汗</td><td>电解质紊乱</td></tr>
+    <tr><td>钙</td><td>1000mg</td><td>日固定流失</td><td>骨质流失</td></tr>
+    <tr><td>铁</td><td>15mg</td><td>日流失+出血</td><td>贫血</td></tr>
+    <tr><td>维 A</td><td>900µg</td><td>日固定</td><td>夜盲症</td></tr>
+    <tr><td>维 C</td><td>100mg</td><td>日固定(且降解最快)</td><td>坏血病</td></tr>
+    <tr><td>维 D</td><td>15µg</td><td>日固定；<strong>户外日照合成回补</strong></td><td>骨质流失</td></tr>
+    <tr><td>B1</td><td>1.2mg</td><td>日固定</td><td>脚气病</td></tr></table>
+    <p>评分：微量 <code>r_i = 当日净摄入 / DRI</code>（钠钾扣出汗、铁扣出血）；宏观 <code>d = clamp(热量净额 / TDEE档, -1, 1)</code>。UI 分档：<50% 危险 / 50–80% 注意 / 80–115% 达标 / >115% 过量。</p>
+    <h3>4.2 数据层</h3>
+    <ul><li>宏量读 B42 原生 <code>Item</code> 脚本字段，不重录；仅允许 Config override</li>
+    <li>微量表每 100g 录入（60–80 高频食物 + 分类兜底）；饮品表新增补水与药效字段</li>
+    <li>进食事件 <code>OnEatFood(food, character, percent)</code>：克数 = percent × 物品重量；宏量不记账（原生已入账），微量、水合、药效写入 MOD 状态</li></ul>
+    <h3>4.3 食物分类降解（保质期联动）</h3>
+    <p><code>保留率(营养i) = 基础曲线_i(储存年龄) × 储存方式系数_i × 食物形态系数_i</code></p>
+    <table><tr><th>营养素</th><th>新鲜食物降解</th></tr>
+    <tr><td>维 C</td><td>最快：3–5 天显著下降，两周接近归零</td></tr>
+    <tr><td>维 A / B1</td><td>中等：周级缓慢下降</td></tr>
+    <tr><td>矿物质(钠钾钙铁)</td><td>极慢：保质期内视为 100%</td></tr>
+    <tr><td>宏量</td><td>稳定；腐烂后蛋白质变质</td></tr></table>
+    <p><strong>储存方式</strong>：常温按基础曲线 / 冷藏 ×0.3 / 冷冻暂停 / 罐头保质期内 100%。</p>
+    <blockquote>放蔫的蔬菜还能填饱肚子(宏量在)但防不了坏血病；罐头稳定供热量但缺 VC——玩家必须经营新鲜食物供应链。</blockquote>` },
+
+  { id:'exercise', num:'5', title:'运动子系统',
+    content:`<h3>5.1 燃料底物模型</h3>
+    <p>动作<strong>不配置五维扣减向量</strong>。每秒产出两个信号：<strong>强度 I</strong>(0–1) 与 <strong>持续时间 T</strong>。燃料分配由"强度 × 时长 × 空腹状态"查表给出比例，最终体现为对<strong>原生宏量池消耗速率的乘性调制</strong>。</p>
+    <table><tr><th>场景</th><th>碳水</th><th>脂肪</th><th>蛋白</th></tr>
+    <tr><td>冲刺/战斗/攀爬(高强短时)</td><td>高</td><td>低</td><td>≈0</td></tr>
+    <tr><td>步行/潜行/劳作(低强长时)</td><td>中→随时长下降</td><td>中→随时长升高</td><td>≈0</td></tr>
+    <tr><td>空腹+碳水枯竭</td><td>低</td><td>高</td><td>0</td></tr>
+    <tr><td>长期亏空+持续高负荷</td><td>低</td><td>高</td><td>开始拆蛋白</td></tr></table>
+    <p><strong>动作强度档</strong>：静息 1.0 / 蹲走潜行 1.4 / 步行 2.0 / 跑步 4.0 / 冲刺 7.0。瞬时动作折算等效冲刺秒数。负重修用负重比 <code>inventoryWeight/maxWeight</code>。</p>
+    <h3>5.2 小时级能量反馈</h3>
+    <p>由原生碳水/热量池水平派生连续值(0–1)：偏低 → 耐力恢复 ×0.85、上限 −10%；枯竭 → 耐力恢复冻结。总修正 clamp ±20%。</p>
+    <h3>5.3 训练负荷、恢复与适应</h3>
+    <ul>
+    <li><strong>训练负荷</strong>：按强度与时长累积；过高产生"微损伤"</li>
+    <li><strong>恢复条件</strong>：恢复质量 = f(睡眠, 蛋白满足度, 总热量, 水合, 微损伤量)</li>
+    <li><strong>蛋白合成窗口</strong>：训练后约 4 游戏小时内，蛋白满足度权重提高</li>
+    <li><strong>超量适应</strong>：负荷→恢复完成→经验收益放大</li>
+    <li><strong>过度训练保护</strong>：连续高负荷恢复不足 → 成长打折、疲劳加速</li>
+    <li><strong>空腹/亏空训练</strong>：负荷仍累积但恢复质量与经验收益显著降低</li>
+    </ul>` },
+
+  { id:'environment', num:'6', title:'环境子系统',
+    content:`<h3>6.1 微气候因素</h3>
+    <table><tr><th>因素</th><th>生理效果</th></tr>
+    <tr><td>温度</td><td>>30°C 出汗增多(钠钾/水流失↑)；<5°C 寒战产热(热量消耗↑)</td></tr>
+    <tr><td>湿度</td><td>高湿抑制蒸发→出汗更多、核心温更易升高；低湿→不显性失水↑</td></tr>
+    <tr><td>湿身/淋雨</td><td>低温下放大热量消耗与失温风险；高温下有助蒸发散热</td></tr>
+    <tr><td>日照</td><td>户外累积合成维 D；暴晒轻微加速脱水</td></tr>
+    <tr><td>风速</td><td><strong>不做</strong></td></tr></table>
+    <h3>6.2 水合池</h3>
+    <p>连续状态 <code>hydration ∈ [0,100]</code>：补充来自饮水/饮品/含水食物；流失=基础排尿呼吸+出汗(强度×温度×湿度)。</p>
+    <table><tr><th>水合水平</th><th>效果</th></tr>
+    <tr><td>100–60</td><td>正常</td></tr>
+    <tr><td>60–40</td><td>耐力恢复下降、口渴提示</td></tr>
+    <tr><td>40–20</td><td>耐力上限/恢复明显下降、疲劳加快</td></tr>
+    <tr><td><20</td><td>重度：强制踉跄、视野暗角，叠加高温导向中暑</td></tr></table>
+    <p>脱水与"低钠"分开：纯水补充大量出汗后可能水合正常但血钠偏低 → 电解质紊乱（治疗靠咸食，不是猛灌水）。</p>
+    <h3>6.3 急性环境事件</h3>
+    <table><tr><th>事件</th><th>触发链</th><th>表现</th></tr>
+    <tr><td>热痉挛/低钠抽搐</td><td>高温高湿大量出汗、钠钾严重流失</td><td>前兆肌肉抽动→短暂硬控</td></tr>
+    <tr><td>中暑(热射病)</td><td>核心体温持续超阈+脱水</td><td>强制踉跄、意识模糊，须撤离热源+补水</td></tr>
+    <tr><td>失温</td><td>低温+湿身+持续暴露</td><td>动作变慢、剧烈颤抖、操作精度下降</td></tr>
+    <tr><td>脱水崩溃</td><td>水合<20 持续</td><td>强制踉跄、视野暗角</td></tr></table>
+    <h3>6.4 饮品真实药效</h3>
+    <table><tr><th>类别</th><th>补水</th><th>特殊效果</th></tr>
+    <tr><td>白水</td><td>1.0</td><td>基准</td></tr>
+    <tr><td>汽水/果汁</td><td>~0.85</td><td>高糖快补碳水；果汁含少量 VC</td></tr>
+    <tr><td>咖啡/浓茶</td><td>~0.9</td><td>咖啡因：短时抗疲劳、利尿、之后疲劳反弹</td></tr>
+    <tr><td>啤酒等低度酒</td><td>≈0 或微负</td><td>酒精利尿+醉酒+空热量</td></tr>
+    <tr><td>葡萄酒/烈酒</td><td>负</td><td>净脱水更强；醉酒更重；热量更高</td></tr></table>
+    <blockquote>啤酒误区：拿啤酒当水 → 利尿净脱水 + 空热量 + 醉酒失温风险上升。</blockquote>` },
+
+  { id:'coupling', num:'7', title:'子系统耦合总览',
+    content:`<p>三大子系统通过代谢核心耦合，形成 5 个关键闭环：</p>
+    <ol>
+    <li><strong>闷热作战</strong>：高湿高温 → 狂出汗 → 水合↓+钠钾↓ → 先脱水(喝水可解) → 继续则低钠抽搐(补盐) → 体温失控中暑</li>
+    <li><strong>罐头经济</strong>：罐头稳定供热量/矿物质但 VC 降解为零 → 长期只吃罐头 → 坏血病；新鲜蔬果(冷藏/采集)是解</li>
+    <li><strong>训练日</strong>：高强度训练 → 碳水消耗+负荷累积 → 窗口内补碳水+蛋白+睡觉 → 超量恢复涨经验；空腹硬练 → 恢复债 → 过度训练</li>
+    <li><strong>雨后赶路</strong>：湿衣+低温 → 热量消耗放大 → 空腹时脂肪/蛋白被动用、体重下降 → 长期叠加消瘦病</li>
+    <li><strong>啤酒误区</strong>：拿啤酒当水 → 利尿净脱水 + 空热量 + 醉酒失温风险</li>
+    </ol>` },
+
+  { id:'ui', num:'8', title:'UI 与 NeatUI',
+    content:`<h3>8.1 NeatUI 依赖策略</h3>
+    <ul>
+    <li><strong>硬前置依赖</strong>：NeatUI Framework [B42]，Workshop ID <strong>3508537032</strong>；支持 B42.0.2–42.20.x</li>
+    <li><strong>隔离原则</strong>：建立 <code>RM_UIAdapter.lua</code>，所有界面只调适配层接口；NeatUI API 只出现在适配层内</li>
+    <li>NeatUI 若不兼容或停更，重写适配层即可，业务代码零改动</li>
+    </ul>
+    <h3>8.2 界面组成</h3>
+    <ol>
+    <li><strong>营养/代谢面板</strong>：状态(微量+宏量+水合+能量反馈+运动负荷)、7 天趋势(像素折线)、健康(疾病/急性事件/恢复状态)</li>
+    <li><strong>角落状态图标</strong>：7 营养病(四阶段) + 脱水/中暑/失温/低钠/醉酒/咖啡因/过度训练</li>
+    <li><strong>入口</strong>：N 键(可改) + 健康面板整合区块</li>
+    <li><strong>信息精度</strong>：Nutritionist trait 控制精确毫克数显示，无 trait 只看定性档</li>
+    </ol>
+    <p>沿用 Vanilla-Native 视觉规范：米色纸感、深棕描边、原版位图字体、色盲三重编码。</p>` },
+
+  { id:'arch', num:'9', title:'架构设计',
+    content:`<h3>9.1 目录结构</h3>
+    <pre><code>RealMetabolism/42/
+├── mod.info                 -- require NeatUI(3508537032)
+└── media/lua/
+    ├── shared/
+    │   ├── RM_Config.lua           -- 全部参数
+    │   ├── RM_DataLayer.lua        -- 微量/饮品/降解/原生宏量读取
+    │   ├── RM_History.lua          -- 7天历史与每日结算
+    │   └── RM_Scoring.lua          -- 纯函数:评分/归一化/燃料/恢复
+    ├── client/
+    │   ├── RM_UIAdapter.lua        -- 唯一接触 NeatUI 的适配层
+    │   ├── RM_Panel.lua            -- 代谢面板/趋势/健康
+    │   ├── RM_StatusIcons.lua      -- 角落状态图标层
+    │   └── RM_Theme.lua            -- Vanilla-Native 主题令牌
+    └── server/
+        ├── RM_Commands.lua         -- 写操作封装
+        ├── RM_Core.lua             -- 状态初始化/每日结算编排
+        ├── RM_Fuel.lua             -- 底物燃料切换、能量反馈
+        ├── RM_Hydration.lua        -- 水合池
+        ├── RM_Environment.lua      -- 温湿度/湿身/日照、急性事件
+        ├── RM_Beverages.lua        -- 饮品药效
+        ├── RM_Training.lua         -- 负荷/恢复/蛋白窗口
+        ├── RM_Decay.lua            -- 食物分类降解
+        └── RM_Diseases.lua         -- 7营养缺乏病状态机</code></pre>
+    <h3>9.2 关键约束</h3>
+    <ul>
+    <li>纯函数模块（Scoring/Fuel 分配/Decay 折算/疾病状态机）可在 luajit 离线测试</li>
+    <li>所有干预走倍率/修饰接口，禁止每秒硬写原生状态</li>
+    <li>NeatUI 只出现在 RM_UIAdapter.lua</li>
+    </ul>` },
+];
+
+/* ============================================================
+   可视化数据
+   ============================================================ */
+
+// 模块架构
+const ARCH = [
+  { group:'共享模块 / shared', color:'amber',
+    modules:[
+      { name:'RM_Config.lua', desc:'全部参数：DRI/TDEE/燃料曲线/降解/饮品/疾病/环境/图标', layer:'shared' },
+      { name:'RM_DataLayer.lua', desc:'微量表/饮品表/降解折算/原生宏量读取/兜底', layer:'shared' },
+      { name:'RM_History.lua', desc:'7 天历史与每日结算', layer:'shared' },
+      { name:'RM_Scoring.lua', desc:'纯函数：评分/归一化/燃料分配/恢复系数', layer:'shared' },
+    ]},
+  { group:'客户端 / client (NeatUI)', color:'green',
+    modules:[
+      { name:'RM_UIAdapter.lua', desc:'唯一接触 NeatUI 的适配层（隔离第三方依赖）', layer:'client' },
+      { name:'RM_Panel.lua', desc:'代谢面板：状态/趋势/健康', layer:'client' },
+      { name:'RM_StatusIcons.lua', desc:'角落状态图标层（7病四阶段+急性事件）', layer:'client' },
+      { name:'RM_Theme.lua', desc:'Vanilla-Native 主题令牌', layer:'client' },
+    ]},
+  { group:'服务端 / server', color:'blue',
+    modules:[
+      { name:'RM_Commands.lua', desc:'写操作封装（单机本地/预留 MP）', layer:'server' },
+      { name:'RM_Core.lua', desc:'状态初始化/schemaVersion/每日结算编排', layer:'server' },
+      { name:'RM_Fuel.lua', desc:'底物燃料切换、瞬时动作、能量反馈', layer:'server' },
+      { name:'RM_Hydration.lua', desc:'水合池（连续 0–100%）', layer:'server' },
+      { name:'RM_Environment.lua', desc:'温湿度/湿身/日照、急性事件', layer:'server' },
+      { name:'RM_Beverages.lua', desc:'饮品药效（酒精/咖啡因/糖）', layer:'server' },
+      { name:'RM_Training.lua', desc:'负荷/恢复/蛋白窗口/过度训练', layer:'server' },
+      { name:'RM_Decay.lua', desc:'食物分类降解（保质期联动）', layer:'server' },
+      { name:'RM_Diseases.lua', desc:'7 营养缺乏病状态机', layer:'server' },
+    ]},
+];
+
+const DEPS = [
+  { from:'Scoring', to:'Config' },
+  { from:'DataLayer', to:'Config' },
+  { from:'History', to:'Scoring' },
+  { from:'Core', to:'History' },
+  { from:'Fuel', to:'Scoring' },
+  { from:'Hydration', to:'Config' },
+  { from:'Environment', to:'Scoring' },
+  { from:'Beverages', to:'DataLayer' },
+  { from:'Training', to:'Scoring' },
+  { from:'Decay', to:'DataLayer' },
+  { from:'Diseases', to:'History' },
+  { from:'Panel', to:'UIAdapter' },
+  { from:'Panel', to:'Core (只读)' },
+  { from:'StatusIcons', to:'UIAdapter' },
+];
+
+// 数据流：三大子系统 → 代谢核心 → 原生状态
+const FLOW = [
+  { title:'动作强度/时长', sub:'OnPlayerUpdate 累加器', src:'RM_Fuel.lua' },
+  { title:'微量摄入(含降解)', sub:'OnEatFood', src:'RM_DataLayer.lua' },
+  { title:'水合池(饮品药效)', sub:'饮水/饮品/含水食物', src:'RM_Hydration.lua' },
+  { title:'天气(温/湿/雨/日照)', sub:'ClimateManager', src:'RM_Environment.lua' },
+];
+const FLOW_BRANCH = [
+  { title:'代谢核心', sub:'底物燃料切换 × 负荷 × 恢复', src:'RM_Scoring.lua' },
+  { title:'宏量池调制 → 原生体重', sub:'读原生、挂倍率，不接管', src:'RM_Core.lua' },
+  { title:'训练负荷/恢复 → XP', sub:'蛋白窗口/超量适应/过度训练', src:'RM_Training.lua' },
+  { title:'7天微量评分', sub:'r_i = 净摄入 / DRI', src:'RM_History.lua' },
+  { title:'急性环境事件', sub:'池越阈：中暑/失温/痉挛/脱水', src:'RM_Environment.lua' },
+  { title:'7种营养缺乏病', sub:'7天均值<阈值 → 0-3级', src:'RM_Diseases.lua' },
+];
+
+// 事件
+const EVENTS = [
+  { event:'OnCreatePlayer', type:'trigger', desc:'初始化 modData(schemaVersion)、装进食 hook、恢复状态', mod:'RM_Core.lua' },
+  { event:'OnEatFood', type:'trigger', desc:'微量/水合/药效写入 MOD 状态（宏量原生已入账，不重复记账）。Spike 0 S1 验证 percent/重量语义', mod:'RM_DataLayer.lua' },
+  { event:'OnPlayerUpdate', type:'trigger', desc:'只读状态，累加器驱动每秒结算：强度判定、燃料调制、水合流失、环境暴露', mod:'RM_Fuel / RM_Hydration / RM_Environment' },
+  { event:'OnWeaponSwing', type:'trigger', desc:'训练负荷累积（不重复扣宏量，原生挥击已消耗）', mod:'RM_Training.lua' },
+  { event:'EveryDays (0:00)', type:'daily', desc:'每日净额入 7 天历史、微量评分、疾病状态机推进、训练恢复结算', mod:'RM_History / RM_Diseases / RM_Training' },
+  { event:'EveryHours', type:'daily', desc:'短期窗口刷新：能量反馈、水合衰减插值、症状插值', mod:'RM_Core.lua' },
+  { event:'OnKeyKeepPressed (N)', type:'client', desc:'代谢面板开关；右上角备用入口', mod:'RM_Panel.lua' },
+];
+
+// 疾病（7 种营养缺乏病，M3；骨质流失不做骨折——B42 无骨折系统）
+const DISEASES = [
+  { name:'坏血病', nutri:'维生素 C',
+    symptom:'伤口愈合 -20%/-40%/-60%；疲劳恢复 -10%/-25%/-40%；重度持续失血倾向。维C降解最快，罐头经济主要压力。', stage:4 },
+  { name:'贫血', nutri:'铁',
+    symptom:'耐力上限 -10%/-20%/-35%；运动耗耐力 +15%/+30%/+50%；重度偶发眩晕(操作失灵 0.5s)', stage:4 },
+  { name:'电解质紊乱', nutri:'钠/钾',
+    symptom:'耐力恢复 -20%/-40%/-60%；随机抽搐(1s 无法行动)；重度间歇意识模糊。脱水与低钠分开判定。', stage:4 },
+  { name:'消瘦', nutri:'蛋白质/热量',
+    symptom:'皮肤苍白；受伤 +10%/+20%/+35%；耐力恢复 -10%/-25%/-40%；重度负重大幅下降', stage:4 },
+  { name:'夜盲症', nutri:'维生素 A',
+    symptom:'夜晚视野 -20%/-40%/-60%；光源半径 -20%/-35%/-50%；重度看不清 5 米外', stage:4 },
+  { name:'脚气病', nutri:'维生素 B1',
+    symptom:'奔跑后呼吸急促(疲劳值暴涨)；日常疲劳 +15%/+30%/+50%；重度走路都累', stage:4 },
+  { name:'骨质流失', nutri:'维生素 D / 钙',
+    symptom:'挥击小概率武器掉落；M3-MVP 不做骨折(B42 无骨折系统)；重度摔落增骨折率为后续增强。维 D 可户外日照合成。', stage:4 },
+];
+
+// 急性环境事件（连续池越阈触发，独立于 7 天营养病状态机）
+const ACUTE_EVENTS = [
+  { name:'热痉挛/低钠抽搐', trigger:'高温高湿大量出汗、钠钾严重流失', effect:'前兆肌肉抽动→短暂硬控', color:'var(--red)' },
+  { name:'中暑(热射病)', trigger:'核心体温持续超阈 + 脱水', effect:'强制踉跄、意识模糊，须撤离热源+补水', color:'var(--orange)' },
+  { name:'失温', trigger:'低温 + 湿身 + 持续暴露', effect:'动作变慢、剧烈颤抖、操作精度下降；靠近火源/换干衣恢复', color:'var(--blue)' },
+  { name:'脱水崩溃', trigger:'水合 < 20 持续', effect:'强制踉跄、视野暗角，叠加高温导向中暑', color:'var(--amber)' },
+];
+
+// 运动强度档（相对倍率；v3 不配置五维扣减向量，燃料比例由强度×时长×空腹查表）
+const EX_PER_SEC = [
+  { action:'静息/站立', carbs:'—', salt:'—', pct:14, note:'基础代谢' },
+  { action:'蹲走/潜行', carbs:'中→低', salt:'—', pct:20, note:'肌肉持续紧张' },
+  { action:'步行', carbs:'中→随时长↓', salt:'—', pct:29, note:'脂肪占比随时长↑' },
+  { action:'跑步', carbs:'高', salt:'—', pct:57, note:'主力碳水' },
+  { action:'冲刺', carbs:'极高', salt:'—', pct:100, note:'短时缺氧，几乎纯碳水' },
+];
+// 瞬时动作（折算等效冲刺秒数，不直接扣营养；战斗原生已消耗，只计训练负荷）
+const EX_INSTANT = [
+  { action:'翻越栅栏/矮墙', carbs:'2–4s 等效冲刺', salt:'训练负荷' },
+  { action:'攀爬绳索', carbs:'4–6s 等效冲刺', salt:'训练负荷' },
+  { action:'翻窗进出', carbs:'2–3s 等效冲刺', salt:'训练负荷' },
+  { action:'上下楼梯', carbs:'1–2s × 负重比', salt:'训练负荷' },
+  { action:'重击/撞门', carbs:'1–3s 等效冲刺', salt:'训练负荷' },
+];
+// 训练恢复矩阵（v3：负荷 × 恢复质量 → 经验收益）
+const GROWTH_MATRIX = [
+  { label:'高负荷 + 充足恢复(窗口内补蛋白)', val:'超量恢复，经验收益放大', cls:'pos', arrow:'↑' },
+  { label:'低负荷 + 正常恢复', val:'维持，少量正增长', cls:'pos', arrow:'↗' },
+  { label:'高负荷 + 恢复不足', val:'过度训练：成长打折、疲劳加速', cls:'neg', arrow:'↓' },
+  { label:'空腹/亏空训练', val:'恢复质量与经验收益显著降低(白练)', cls:'neg', arrow:'↘' },
+];
+
+// 饮品药效表（v3 §6.4）
+const BEVERAGES = [
+  { cat:'白水', hyd:'1.0', eff:'基准' },
+  { cat:'汽水/果汁', hyd:'~0.85', eff:'高糖快补碳水；果汁含少量 VC' },
+  { cat:'咖啡/浓茶', hyd:'~0.9', eff:'咖啡因：短时抗疲劳、利尿、疲劳反弹' },
+  { cat:'啤酒等低度酒', hyd:'≈0/微负', eff:'酒精利尿 + 醉酒 + 空热量' },
+  { cat:'葡萄酒/烈酒', hyd:'负', eff:'净脱水更强；醉酒更重；热量更高' },
+];
+
+// 食物降解速率（v3 §4.3）
+const DECAY = [
+  { nutri:'维生素 C', rate:'最快：3–5天显著下降，两周接近归零', note:'新鲜蔬果主要来源' },
+  { nutri:'维生素 A / B1', rate:'中等：周级缓慢下降', note:'长时间加热另计(本期不做)' },
+  { nutri:'矿物质(钠钾钙铁)', rate:'极慢：保质期内视为 100%', note:'腐烂后仍在，但伴患病风险' },
+  { nutri:'宏量(碳水/脂肪/蛋白)', rate:'稳定；腐烂后蛋白变质', note:'与原版腐烂效果叠加' },
+];
+
+/* ============================================================
+   渲染函数
+   ============================================================ */
+const docContent = document.getElementById('docContent');
+const outlineList = document.getElementById('outlineList');
+const vizCanvas = document.getElementById('vizCanvas');
+
+// 渲染文档
+function renderDoc(){
+  SECTIONS.forEach(s=>{
+    outlineList.insertAdjacentHTML('beforeend',
+      `<li data-sec="${s.id}">${s.title}</li>`);
+    docContent.insertAdjacentHTML('beforeend',
+      `<section class="doc-section" id="sec-${s.id}" data-sec="${s.id}">
+        <div class="sec-num">§ ${s.num}</div>
+        <h2>${s.title}</h2>
+        ${s.content}
+      </section>`);
+  });
+  outlineList.querySelectorAll('li').forEach(li=>{
+    li.addEventListener('click',()=>scrollToSec(li.dataset.sec));
+  });
+}
+
+function scrollToSec(id){
+  const el = document.getElementById('sec-'+id);
+  if(el){
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    el.classList.add('flash');
+    setTimeout(()=>el.classList.remove('flash'),800);
+    setActiveOutline(id);
+    // 同步切换到相关可视化
+    syncVizFromSec(id);
+  }
+}
+
+function setActiveOutline(id){
+  outlineList.querySelectorAll('li').forEach(li=>{
+    li.classList.toggle('active', li.dataset.sec===id);
+  });
+}
+
+// 根据章节自动切换可视化 tab
+function syncVizFromSec(id){
+  const map = {
+    overview:'arch', principles:'arch', state:'arch',
+    nutrition:'score', exercise:'exercise', environment:'exercise',
+    coupling:'flow', ui:'arch', arch:'arch'
+  };
+  const target = map[id] || 'arch';
+  switchViz(target, id);
+}
+
+/* ---- 可视化渲染 ---- */
+let currentViz = 'arch';
+let currentSec = null;
+
+function switchViz(vizId, secId){
+  currentViz = vizId;
+  currentSec = secId;
+  document.querySelectorAll('.viz-tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.viz===vizId);
+  });
+  renderViz(vizId, secId);
+}
+
+function renderViz(id, secId){
+  switch(id){
+    case 'arch': renderArch(secId); break;
+    case 'flow': renderFlow(secId); break;
+    case 'score': renderScore(secId); break;
+    case 'events': renderEvents(secId); break;
+    case 'disease': renderDisease(secId); break;
+    case 'exercise': renderExercise(secId); break;
+  }
+}
+
+/* --- 模块架构 --- */
+function renderArch(secId){
+  let html = `<div class="diagram-title">
+    <span class="tag">ARCH</span><h2>模块架构与依赖</h2>
+    <span class="desc">shared(4) / client(4) / server(9) · NeatUI 硬依赖 · 读原生挂倍率</span>
+  </div>`;
+  html += '<div class="arch-grid">';
+  ARCH.forEach(g=>{
+    html += `<div class="arch-group"><div class="group-label">${g.group}</div>`;
+    g.modules.forEach(m=>{
+      const active = secId && isModuleRelated(m.name, secId);
+      html += `<div class="arch-module${active?' active':''}" data-mod="${m.name}" data-sec="${moduleToSec(m.name)}">
+        <div class="m-name">${m.name}</div>
+        <div class="m-desc">${m.desc}</div>
+        <div class="m-layer">// ${m.layer}</div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  html += '</div>';
+  html += '<div class="arch-deps">';
+  DEPS.forEach(d=>{
+    html += `<div class="dep-row"><span class="from">${d.from}</span><span class="arrow">→</span><span class="to">${d.to}</span></div>`;
+  });
+  html += '</div>';
+  html += '<div class="note">点击模块卡片可跳转到文档中对应章节。三大子系统（营养/运动/环境）通过代谢核心耦合，所有干预走倍率/修饰接口，禁止每秒硬写原生状态。</div>';
+  vizCanvas.innerHTML = html;
+  bindModuleClicks();
+}
+
+function isModuleRelated(modName, secId){
+  const map = {
+    'RM_DataLayer.lua':['nutrition'],
+    'RM_Scoring.lua':['nutrition','exercise'],
+    'RM_History.lua':['nutrition'],
+    'RM_Fuel.lua':['exercise'],
+    'RM_Training.lua':['exercise'],
+    'RM_Hydration.lua':['environment'],
+    'RM_Environment.lua':['environment'],
+    'RM_Beverages.lua':['environment','nutrition'],
+    'RM_Decay.lua':['nutrition'],
+    'RM_Diseases.lua':['nutrition'],
+    'RM_Panel.lua':['ui'],
+    'RM_StatusIcons.lua':['ui'],
+    'RM_UIAdapter.lua':['ui'],
+  };
+  return (map[modName]||[]).includes(secId);
+}
+function moduleToSec(modName){
+  const map = {
+    'RM_Config.lua':'arch','RM_DataLayer.lua':'nutrition','RM_History.lua':'nutrition',
+    'RM_Scoring.lua':'nutrition','RM_UIAdapter.lua':'ui','RM_Panel.lua':'ui',
+    'RM_StatusIcons.lua':'ui','RM_Theme.lua':'ui','RM_Commands.lua':'arch',
+    'RM_Core.lua':'arch','RM_Fuel.lua':'exercise','RM_Hydration.lua':'environment',
+    'RM_Environment.lua':'environment','RM_Beverages.lua':'environment',
+    'RM_Training.lua':'exercise','RM_Decay.lua':'nutrition','RM_Diseases.lua':'nutrition',
+  };
+  return map[modName] || 'arch';
+}
+function bindModuleClicks(){
+  vizCanvas.querySelectorAll('.arch-module').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const sec = el.dataset.sec;
+      if(sec) scrollToSec(sec);
+    });
+  });
+}
+
+/* --- 数据流 --- */
+function renderFlow(secId){
+  let html = `<div class="diagram-title">
+    <span class="tag">FLOW</span><h2>代谢数据流</h2>
+    <span class="desc">三大子系统 → 代谢核心 → 原生状态 / 疾病 / 急性事件</span>
+  </div>`;
+  html += '<div class="flow-wrap">';
+  html += '<div class="flow-row">';
+  FLOW.forEach((n,i)=>{
+    html += `<div class="flow-node" data-sec="${flowToSec(n.title)}">
+      <div class="fn-title">${n.title}</div>
+      <div class="fn-sub">${n.sub}</div>
+      <div class="fn-src">${n.src}</div>
+    </div>`;
+    if(i<FLOW.length-1) html += '<div class="flow-arrow">→</div>';
+  });
+  html += '</div>';
+  html += '<div class="flow-arrow down">↓ 代谢核心分支</div>';
+  html += '<div class="flow-row">';
+  FLOW_BRANCH.forEach((n,i)=>{
+    html += `<div class="flow-node" data-sec="${flowToSec(n.title)}">
+      <div class="fn-title">${n.title}</div>
+      <div class="fn-sub">${n.sub}</div>
+      <div class="fn-src">${n.src}</div>
+    </div>`;
+  });
+  html += '</div>';
+  html += '</div>';
+  html += '<div class="note">三大子系统汇入代谢核心：动作(燃料切换) + 微量摄入(降解折算) + 水合(饮品药效) + 天气(微气候) → 宏量池调制/训练成长/7天评分/急性事件/营养病。</div>';
+  vizCanvas.innerHTML = html;
+  vizCanvas.querySelectorAll('.flow-node').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const sec = el.dataset.sec;
+      if(sec && sec!=='#') scrollToSec(sec);
+    });
+  });
+}
+function flowToSec(title){
+  if(title.includes('摄入')||title.includes('降解')) return 'nutrition';
+  if(title.includes('强度')||title.includes('燃料')||title.includes('训练')||title.includes('负荷')) return 'exercise';
+  if(title.includes('水合')||title.includes('天气')||title.includes('环境')||title.includes('急性')) return 'environment';
+  if(title.includes('评分')||title.includes('病')) return 'nutrition';
+  if(title.includes('代谢')||title.includes('宏量')||title.includes('体重')) return 'arch';
+  return '#';
+}
+
+/* --- 事件挂接 --- */
+function renderEvents(secId){
+  let html = `<div class="diagram-title">
+    <span class="tag">EVENTS</span><h2>事件挂接时间线</h2>
+    <span class="desc">游戏事件 → MOD 响应模块</span>
+  </div>`;
+  html += '<div class="timeline">';
+  EVENTS.forEach(e=>{
+    const active = secId && eventToSec(e.event)===secId;
+    html += `<div class="ev-item ${e.type}">
+      <div class="ev-card${active?' active':''}" data-sec="${eventToSec(e.event)}">
+        <div><span class="ev-event">${e.event}</span><span class="ev-type ${e.type}">${e.type.toUpperCase()}</span></div>
+        <div class="ev-desc">${e.desc}</div>
+        <div class="ev-mod">→ ${e.mod}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  html += '<div class="note">OnPlayerUpdate 只读状态、用累加器节流结算，保证性能 <0.2ms/帧。OnEatFood 宏量不重复记账（原生已入账），只写微量/水合/药效。Spike 0 关闭前不写业务逻辑。</div>';
+  vizCanvas.innerHTML = html;
+  vizCanvas.querySelectorAll('.ev-card').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const sec = el.dataset.sec;
+      if(sec && sec!=='#') scrollToSec(sec);
+    });
+  });
+}
+function eventToSec(ev){
+  if(ev.includes('CreatePlayer')||ev.includes('GameStart')) return 'arch';
+  if(ev.includes('EatFood')) return 'nutrition';
+  if(ev.includes('PlayerUpdate')||ev.includes('WeaponSwing')) return 'exercise';
+  if(ev.includes('EveryDays')||ev.includes('EveryHours')||ev.includes('每日')) return 'nutrition';
+  if(ev.includes('Key')||ev.includes('UI')) return 'ui';
+  return '#';
+}
+
+/* --- 疾病系统 --- */
+function renderDisease(secId){
+  let html = `<div class="diagram-title">
+    <span class="tag">DISEASE</span><h2>营养疾病 + 急性环境事件</h2>
+    <span class="desc">7 种营养缺乏病(7天阶梯) · 4 种急性事件(池越阈)</span>
+  </div>`;
+  html += '<h3 style="color:var(--amber-2);margin-bottom:10px">7 种营养缺乏病（M3 · 4 阶段状态机）</h3>';
+  html += '<div class="disease-grid">';
+  DISEASES.forEach(d=>{
+    html += `<div class="disease-card" data-sec="nutrition">
+      <div class="d-name">${d.name}</div>
+      <div class="d-nutri">缺失：${d.nutri}</div>
+      <div class="d-stage">
+        <span class="stage-dot">潜伏</span>
+        <span class="stage-dot">轻</span>
+        <span class="stage-dot">中</span>
+        <span class="stage-dot">重</span>
+      </div>
+      <div class="d-symptom">${d.symptom}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  html += '<h3 style="color:var(--amber-2);margin:24px 0 10px">4 种急性环境事件（连续池越阈触发，独立于 7 天状态机）</h3>';
+  html += '<div class="disease-grid">';
+  ACUTE_EVENTS.forEach(e=>{
+    html += `<div class="disease-card" data-sec="environment" style="border-left-color:${e.color}">
+      <div class="d-name">${e.name}</div>
+      <div class="d-nutri" style="color:var(--amber-2)">触发：${e.trigger}</div>
+      <div class="d-symptom">${e.effect}</div>
+    </div>`;
+  });
+  html += '</div>';
+
+  html += `<div class="disease-flow">
+    <b>营养病触发：</b>某营养素 <span class="bad">7天均值 < 阈值</span> 连续 N 天 → 潜伏 → 轻度 → 中度 → 重度 (0-3 级)<br>
+    <b>营养病恢复：</b>补充达标连续 M 天 → <span class="good">逐级下降</span>　|　新开档 7–10 天宽限<br>
+    <b>急性事件：</b>水合/核心体温连续池越过危险阈值 → 短时事件，有前兆、可逆、有对策<br>
+    <b>并发归一化：</b>多病 + 多事件惩罚 <b>归一化累加</b>，总修正 clamp ±20%，防属性爆负 / NaN
+  </div>`;
+  html += '<div class="note">营养病走多日状态机；急性事件是连续池越阈的短时表现，二者独立。骨质流失 M3-MVP 不做骨折（B42 无骨折系统）。维 D 可户外日照合成回补。</div>';
+  vizCanvas.innerHTML = html;
+  vizCanvas.querySelectorAll('.disease-card').forEach(el=>{
+    el.addEventListener('click',()=>scrollToSec(el.dataset.sec||'nutrition'));
+  });
+}
+
+/* --- 运动与环境 --- */
+function renderExercise(secId){
+  let html = `<div class="diagram-title">
+    <span class="tag">EXERCISE</span><h2>运动子系统 · 生理底物燃料 + 训练恢复</h2>
+    <span class="desc">强度×时长×空腹 → 燃料比例；不配置五维扣减向量</span>
+  </div>`;
+  html += '<div class="ex-grid">';
+
+  html += '<div class="ex-block"><h3>动作强度档（相对倍率）</h3>';
+  html += '<table class="ex-table"><tr><th>动作</th><th>强度</th><th>碳水占比趋势</th><th>强度条</th></tr>';
+  EX_PER_SEC.forEach(r=>{
+    html += `<tr><td>${r.action}</td><td>${r.note}</td><td>${r.carbs}</td>
+      <td><div class="bar"><div class="bar-fill" style="width:${r.pct}%"></div></div></td></tr>`;
+  });
+  html += '</table></div>';
+
+  html += '<div class="ex-block"><h3>瞬时动作（折算等效冲刺秒数）</h3>';
+  html += '<table class="ex-table"><tr><th>动作</th><th>等效冲刺</th><th>计入</th></tr>';
+  EX_INSTANT.forEach(r=>{
+    html += `<tr><td>${r.action}</td><td>${r.carbs}</td><td>${r.salt}</td></tr>`;
+  });
+  html += '</table>';
+  html += '<div class="note" style="margin-top:10px">战斗不重复扣宏量（原生挥击已消耗），只计训练负荷。负重修用负重比 inventoryWeight/maxWeight。微量不进动作消耗。</div>';
+  html += '</div>';
+
+  html += '</div>'; // end ex-grid
+
+  html += '<div class="ex-block" style="margin-top:16px"><h3>训练恢复矩阵（负荷 × 恢复质量 → 经验收益）</h3>';
+  html += '<div class="growth-matrix">';
+  GROWTH_MATRIX.forEach(c=>{
+    html += `<div class="gm-cell ${c.cls}"><div class="gm-label">${c.label}</div>
+      <div class="gm-val"><span class="gm-arrow">${c.arrow}</span>${c.val}</div></div>`;
+  });
+  html += '</div></div>';
+
+  // 饮品药效 + 降解
+  html += '<div class="ex-grid" style="margin-top:16px">';
+  html += '<div class="ex-block"><h3>饮品真实药效</h3>';
+  html += '<table class="ex-table"><tr><th>类别</th><th>补水</th><th>特殊效果</th></tr>';
+  BEVERAGES.forEach(b=>{
+    html += `<tr><td>${b.cat}</td><td><b>${b.hyd}</b></td><td>${b.eff}</td></tr>`;
+  });
+  html += '</table></div>';
+
+  html += '<div class="ex-block"><h3>食物分类降解速率</h3>';
+  html += '<table class="ex-table"><tr><th>营养素</th><th>降解</th><th>备注</th></tr>';
+  DECAY.forEach(d=>{
+    html += `<tr><td>${d.nutri}</td><td>${d.rate}</td><td>${d.note}</td></tr>`;
+  });
+  html += '</table></div>';
+  html += '</div>';
+
+  html += '<div class="note">核心：读原生宏量池、挂原生代谢倍率，不重算不接管。蛋白合成窗口(训练后~4h)内补蛋白权重提高；过度训练保护防止肝训练刷级。全部经验发放受 Nutrition.canAddFitnessXp() 门控。</div>';
+  vizCanvas.innerHTML = html;
+}
+
+/* --- 代谢核心 · 评分公式展开 --- */
+const SCORE_STEPS = [
+  { n:'1', t:'微量净摄入',
+    f:'Net_i = Intake_i − Sweat_i − Bleed_i',
+    d:'钠/钾扣除出汗流失（强度×温度×湿度）；铁扣除出血。宏量不记账（原生 Nutrition 池已入账，MOD 只读）。' },
+  { n:'2', t:'微量归一化评分',
+    f:'r_i = Net_i / DRI_i   ( i ∈ {Na,K,Ca,Fe,A,C,D,B1} )',
+    d:'DRI 为每日参考需求（钠 2000mg / 钾 3000mg / 钙 1000mg / 铁 15mg / VC 100mg …）。r_i 为比值，<0.5 危险 / 0.5–0.8 注意 / 0.8–1.15 达标 / >1.15 过量。' },
+  { n:'3', t:'宏观热量评分',
+    f:'d = clamp( 热量净额 / TDEE档 , −1 , +1 )',
+    d:'TDEE 按活动档 2000/2700/3400 kcal。d ∈ [−1,+1]，驱动体重趋势与能量反馈。' },
+  { n:'4', t:'7 天滚动均值',
+    f:'S_i = ( r_i,1 + r_i,2 + … + r_i,7 ) / 7',
+    d:'最近 7 天微量评分均值，滤除单日波动。疾病触发阈值、恢复判定均基于 S_i。' },
+  { n:'5', t:'训练经验流',
+    f:'XP = Stimulus × RecoveryQuality × Satiety  ( |XP| ≤ Cap )',
+    d:'Stimulus=当日训练负荷；RecoveryQuality=f(睡眠,蛋白窗口,水合,微损伤)；Satiety=宏观满足度。受 canAddFitnessXp() 门控。' },
+];
+
+function renderScore(secId){
+  const active = secId==='nutrition';
+  let html = `<div class="diagram-title">
+    <span class="tag">CORE</span><h2>代谢核心 · 评分与燃料分配</h2>
+    <span class="desc">微量 r_i · 宏观 d · 7天均值 · 训练经验流</span>
+  </div>`;
+
+  // 公式步骤链
+  html += '<div class="score-steps">';
+  SCORE_STEPS.forEach(s=>{
+    html += `<div class="score-step${active?' active':''}" data-sec="nutrition">
+      <div class="ss-num"><span class="n">${s.n}</span><span class="t">STEP</span></div>
+      <div class="ss-body">
+        <div class="ss-title">${s.t}</div>
+        <code class="ss-formula">${s.f}</code>
+        <div class="ss-desc">${s.d}</div>
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+
+  // 交互演算 + clamp 曲线
+  html += `<div class="score-lab-wrap">
+    <div class="score-lab">
+      <h3>交互演算 · 微量评分（拖动滑块）</h3>
+      ${scoreSlider('微量摄入 (占 DRI %)','labIn',110,0,200)}
+      ${scoreSlider('出汗/流失扣除 (占 DRI %)','labOut',15,0,100)}
+      ${scoreSlider('近6天 r 均值 (历史惯性)','labHist',0,-100,200)}
+      ${scoreSlider('训练负荷 Stimulus','labStim',60,0,100)}
+      <div class="lab-results">
+        <div class="lr" id="lrNet"><span>净摄入 Net</span><b class="zero">—</b></div>
+        <div class="lr" id="lrD"><span>微量评分 r</span><b class="zero">—</b></div>
+        <div class="lr" id="lrS"><span>7天均值 S</span><b class="zero">—</b></div>
+        <div class="lr" id="lrXP"><span>经验流 XP</span><b class="zero">—</b></div>
+      </div>
+    </div>
+    <div class="score-curve">
+      <h3>UI 分档曲线 · r = Net / DRI</h3>
+      <div id="curveBox"></div>
+      <div class="curve-legend">
+        <span>危险 <50%</span><span>注意 50–80%</span><span>达标 80–115%</span><span>过量 >115%</span>
+      </div>
+    </div>
+  </div>`;
+
+  // 燃料分配表
+  html += `<div class="score-branch">
+    <h3>生理底物燃料分配（强度 × 时长 × 空腹 → 碳水/脂肪/蛋白比例）</h3>
+    <div class="branch-cards">
+      <div class="branch-card"><div class="bc-cond">高强短时</div><div class="bc-eff">碳水高 · 脂肪低 · 蛋白≈0</div></div>
+      <div class="branch-card"><div class="bc-cond">低强长时</div><div class="bc-eff">碳水↓ · 脂肪↑ · 蛋白≈0</div></div>
+      <div class="branch-card"><div class="bc-cond">空腹+碳水枯竭</div><div class="bc-eff">碳水低 · 脂肪高</div></div>
+    </div>
+    <div class="note">燃料比例最终体现为对<strong>原生宏量池消耗速率的乘性调制</strong>（挂点由 Spike 0 S3 确认），不直接 setCalories。</div>
+  </div>`;
+
+  // 归一化与防爆
+  html += `<div class="score-clamps">
+    <h3>归一化与防爆规则</h3>
+    <div class="clamp-row"><code>耐力修正 ∈ [ −20% , +20% ]</code><span>总修正钳制，疾病+急性事件叠加不爆表</span></div>
+    <div class="clamp-row"><code>宏量池：只挂倍率，不硬写</code><span>禁止每秒 setCalories/setWeight，走 MetabolicRate 倍率</span></div>
+    <div class="clamp-row"><code>XP 受 canAddFitnessXp() 门控</code><span>复用原版封顶/特质逻辑，不绕过</span></div>
+  </div>`;
+
+  html += '<div class="note">点击公式步骤卡可跳转到文档 §4「营养子系统」。所有系数集中在 RM_Config.lua，改参数即调平衡。宏量读原生不重录，仅微量/水合/训练恢复为 MOD 自有状态。</div>';
+
+  vizCanvas.innerHTML = html;
+
+  vizCanvas.querySelectorAll('.score-step').forEach(el=>{
+    el.addEventListener('click',()=>scrollToSec('nutrition'));
+  });
+
+  renderClampCurve();
+  bindScoreLab();
+}
+
+function scoreSlider(label,id,val,min,max){
+  return `<div class="lab-slider">
+    <label>${label} <b id="${id}Val">${val}</b></label>
+    <input type="range" id="${id}" min="${min}" max="${max}" value="${val}">
+  </div>`;
+}
+
+/* clamp 曲线 SVG 绘制 */
+function curveX(v){ const pad=42,W=440; return pad+(v+2)/4*(W-pad*2); }
+function curveY(v){ const H=230; return H/2 - v/1.35*(H/2-16); }
+function renderClampCurve(){
+  const box=document.getElementById('curveBox');
+  if(!box) return;
+  const W=440,H=230;
+  let g='';
+  // 竖向网格（每 0.5）
+  for(let x=-2;x<=2.01;x+=0.5){
+    g+=`<line x1="${curveX(x)}" y1="${curveY(1.3)}" x2="${curveX(x)}" y2="${curveY(-1.3)}" stroke="#3d3126" stroke-width="1"/>`;
+  }
+  // 横向参考线：−1 / 0 / +1
+  [-1,0,1].forEach(y=>{
+    g+=`<line x1="${curveX(-2)}" y1="${curveY(y)}" x2="${curveX(2)}" y2="${curveY(y)}"
+      stroke="${y===0?'#5a4736':'#5a3a30'}" stroke-width="1" ${y!==0?'stroke-dasharray="4,3"':''}/>`;
+  });
+  // clamp 曲线主体
+  const path=`M ${curveX(-2)} ${curveY(-1)} L ${curveX(-1)} ${curveY(-1)} L ${curveX(1)} ${curveY(1)} L ${curveX(2)} ${curveY(1)}`;
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${g}
+    <path d="${path}" fill="none" stroke="#d4a24c" stroke-width="2.5" stroke-linejoin="round"/>
+    <text x="${curveX(-1)}" y="${curveY(-1)+16}" fill="#e0735f" font-size="10" font-family="JetBrains Mono" text-anchor="middle">−1</text>
+    <text x="${curveX(1)}" y="${curveY(1)-8}" fill="#e0735f" font-size="10" font-family="JetBrains Mono" text-anchor="middle">+1</text>
+    <text x="${curveX(0)}" y="${curveY(0)-6}" fill="#9a8a72" font-size="10" font-family="JetBrains Mono" text-anchor="middle">0</text>
+    <line id="markV" x1="${curveX(0)}" y1="${curveY(1.3)}" x2="${curveX(0)}" y2="${curveY(-1.3)}" stroke="#7fa85b" stroke-width="1" stroke-dasharray="3,3"/>
+    <line id="markH" x1="${curveX(-2)}" y1="${curveY(0)}" x2="${curveX(2)}" y2="${curveY(0)}" stroke="#7fa85b" stroke-width="1" stroke-dasharray="3,3"/>
+    <circle id="curveMark" cx="${curveX(0)}" cy="${curveY(0)}" r="6" fill="#a0c970" stroke="#15110d" stroke-width="2"/>
+    <text id="markLabel" x="${curveX(0)}" y="${curveY(0)-12}" fill="#a0c970" font-size="11" font-family="JetBrains Mono" text-anchor="middle">d=0.00</text>
+    <text x="${curveX(2)}" y="${curveY(-1.3)+18}" fill="#6b5d4a" font-size="10" font-family="JetBrains Mono" text-anchor="end">Net/DRI →</text>
+    <text x="${curveX(-2)}" y="${curveY(1.3)-6}" fill="#6b5d4a" font-size="10" font-family="JetBrains Mono">d ↑</text>
+  </svg>`;
+}
+
+function updateCurveMark(x){
+  const mark=document.getElementById('curveMark');
+  if(!mark) return;
+  const cx=curveX(Math.max(-2,Math.min(2,x)));
+  const cy=curveY(Math.max(-1,Math.min(1,x)));
+  mark.setAttribute('cx',cx); mark.setAttribute('cy',cy);
+  const mv=document.getElementById('markV'), mh=document.getElementById('markH');
+  mv.setAttribute('x1',cx); mv.setAttribute('x2',cx);
+  mh.setAttribute('y1',cy); mh.setAttribute('y2',cy);
+  const lb=document.getElementById('markLabel');
+  const d=Math.max(-1,Math.min(1,x));
+  lb.textContent='d='+(d>0?'+':'')+d.toFixed(2);
+  lb.setAttribute('x',Math.max(curveX(-1.6),Math.min(curveX(1.6),cx)));
+  lb.setAttribute('y',d>=0?cy-12:cy+20);
+}
+
+/* 交互演算绑定 */
+function bindScoreLab(){
+  const el=id=>document.getElementById(id);
+  const fmt=(v,unit)=>{ const s=v>0?'+':''; return s+v.toFixed(2)+unit; };
+  const setRes=(id,v,unit)=>{
+    const b=el(id).querySelector('b');
+    b.textContent=fmt(v,unit);
+    b.className=v>0.005?'pos':(v<-0.005?'neg':'zero');
+  };
+  const update=()=>{
+    const intake=+el('labIn').value, out=+el('labOut').value;
+    const hist=+el('labHist').value/100, stim=+el('labStim').value/100;
+    el('labInVal').textContent=intake+'%';
+    el('labOutVal').textContent=out+'%';
+    el('labHistVal').textContent=(hist>0?'+':'')+hist.toFixed(2);
+    el('labStimVal').textContent=Math.round(stim*100)+'%';
+    // STEP1 净额（以 DRI 百分比表示）
+    const net=intake-out;
+    // STEP2 归一化
+    const d=Math.max(-1,Math.min(1,net/100));
+    // STEP3 7天均值（今日 + 近6天惯性）
+    const s=(d+6*hist)/7;
+    // STEP5 经验流
+    const xp=stim*s;
+    setRes('lrNet',net,'%');
+    setRes('lrD',d,'');
+    setRes('lrS',s,'');
+    setRes('lrXP',xp,'');
+    // 曲线标记（x 轴 = Net/DRI）
+    updateCurveMark(net/100);
+  };
+  ['labIn','labOut','labHist','labStim'].forEach(id=>{
+    el(id).addEventListener('input',update);
+  });
+  update();
+}
+
+/* ============================================================
+   交互绑定
+   ============================================================ */
+document.querySelectorAll('.viz-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>switchViz(tab.dataset.viz, currentSec));
+});
+
+// doc tabs
+document.querySelectorAll('.doc-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.doc-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('outlineBox').style.display = tab.dataset.view==='outline' ? 'block' : 'none';
+  });
+});
+
+// scroll spy: highlight outline based on visible section
+const docBody = document.getElementById('docBody');
+docBody.addEventListener('scroll',()=>{
+  const sections = docContent.querySelectorAll('.doc-section');
+  let current = null;
+  const scrollTop = docBody.scrollTop;
+  sections.forEach(s=>{
+    if(s.offsetTop - docBody.offsetTop - 60 <= scrollTop) current = s.dataset.sec;
+  });
+  if(current) setActiveOutline(current);
+});
+
+// init
+renderDoc();
+switchViz('arch', null);
+</script>
+</body>
+</html>

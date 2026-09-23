@@ -4,7 +4,7 @@
 - 审查工具：Zombie Atlas（基于本地 Project Zomboid B42 反编译源码）
 - 反编译来源：`E:\Steam\steamapps\common\ProjectZomboid\projectzomboid.jar` → ZomboidDecompiler v0.3.2 (Vineflower)
 - 源码规模：3,078 个 Java 文件 / 4,749 个类型 / 49,645 个方法
-- 审查对象：`docs/superpowers/specs/2026-09-22-zomboid-nutrition-mod-technical.md`
+- 审查对象：[2026-09-22-zomboid-nutrition-mod-technical.md](./2026-09-22-zomboid-nutrition-mod-technical.md)（v2 技术文档，已弃用）
 
 ---
 

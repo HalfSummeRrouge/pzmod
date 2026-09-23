@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Real Metabolism 是啥？</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Comic Sans MS', 'Microsoft YaHei', sans-serif;
+    background: #fdf6e3;
+    color: #3a2a1a;
+    padding: 30px 20px 60px;
+    max-width: 900px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  h1 {
+    font-size: 2.5em;
+    text-align: center;
+    color: #c0392b;
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 1.3em;
+    color: #7f6b52;
+    margin-bottom: 40px;
+  }
+  .one-liner {
+    background: #fff8dc;
+    border: 4px dashed #c0392b;
+    border-radius: 20px;
+    padding: 25px 30px;
+    font-size: 1.4em;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .section {
+    background: white;
+    border: 3px solid #8b7355;
+    border-radius: 18px;
+    padding: 25px 30px;
+    margin-bottom: 30px;
+    box-shadow: 4px 4px 0 #8b7355;
+  }
+  .section h2 {
+    font-size: 1.6em;
+    color: #2c5f7c;
+    margin-bottom: 15px;
+  }
+  .analogy {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+  }
+  .analogy b { color: #c0392b; }
+  svg {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 15px;
+  }
+  .legend span {
+    padding: 5px 12px;
+    border-radius: 12px;
+    font-size: 0.95em;
+    color: white;
+  }
+  .conclusion {
+    text-align: center;
+    font-size: 1.3em;
+    color: #27ae60;
+    margin-top: 30px;
+    font-weight: bold;
+  }
+  .more {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 1.1em;
+    color: #7f6b52;
+    font-style: italic;
+  }
+  .big-text { font-size: 1.3em; }
+</style>
+</head>
+<body>
+
+<h1>🚗 Real Metabolism</h1>
+<div class="subtitle">一个让僵尸末日里的"吃饭运动"变真实的 MOD</div>
+
+<!-- 一句话 -->
+<div class="one-liner">
+  🎯 一句话：<b>它让你的角色像真人一样，吃啥、动啥、天气咋样，都会影响身体状态。</b>
+</div>
+
+<!-- 类比 -->
+<div class="section">
+  <h2>🧠 打个比方</h2>
+  <p class="analogy big-text">
+    把你的角色想象成一辆<b>汽车</b>🚗：
+  </p>
+  <p class="analogy">
+    • <b>吃东西</b> = 加油 + 加机油 + 加冷却液（光加一种不够！）<br>
+    • <b>跑步打架</b> = 踩油门（猛踩费油，慢慢开省油）<br>
+    • <b>下雨天/大太阳</b> = 天气（冬天费电，夏天怕过热）<br>
+    • <b>缺营养</b> = 车坏了（没机油→发动机磨损，没冷却液→开锅）
+  </p>
+</div>
+
+<!-- 三大子系统图 -->
+<div class="section">
+  <h2>🖼️ 它管哪三件事？</h2>
+  <svg viewBox="0 0 700 340" xmlns="http://www.w3.org/2000/svg">
+    <!-- 身体核心 -->
+    <circle cx="350" cy="170" r="65" fill="#f5e6d3" stroke="#c0392b" stroke-width="4"/>
+    <text x="350" y="160" text-anchor="middle" font-size="20" font-weight="bold" fill="#c0392b">身体</text>
+    <text x="350" y="185" text-anchor="middle" font-size="14" fill="#8b7355">状态总控</text>
+
+    <!-- 营养 -->
+    <g>
+      <rect x="40" y="40" width="180" height="100" rx="15" fill="#e8f5e9" stroke="#27ae60" stroke-width="3"/>
+      <text x="130" y="75" text-anchor="middle" font-size="22">🍎</text>
+      <text x="130" y="105" text-anchor="middle" font-size="18" font-weight="bold" fill="#27ae60">营养</text>
+      <text x="130" y="125" text-anchor="middle" font-size="13" fill="#555">8种维生素+喝水</text>
+    </g>
+    <!-- 运动 -->
+    <g>
+      <rect x="480" y="40" width="180" height="100" rx="15" fill="#fff3e0" stroke="#e67e22" stroke-width="3"/>
+      <text x="570" y="75" text-anchor="middle" font-size="22">🏃</text>
+      <text x="570" y="105" text-anchor="middle" font-size="18" font-weight="bold" fill="#e67e22">运动</text>
+      <text x="570" y="125" text-anchor="middle" font-size="13" fill="#555">跑/打/搬东西</text>
+    </g>
+    <!-- 环境 -->
+    <g>
+      <rect x="260" y="250" width="180" height="70" rx="15" fill="#e3f2fd" stroke="#2980b9" stroke-width="3"/>
+      <text x="350" y="280" text-anchor="middle" font-size="22">🌦️</text>
+      <text x="350" y="305" text-anchor="middle" font-size="18" font-weight="bold" fill="#2980b9">环境</text>
+    </g>
+
+    <!-- 连线 -->
+    <line x1="220" y1="90" x2="285" y2="150" stroke="#8b7355" stroke-width="3" marker-end="url(#arr)"/>
+    <line x1="480" y1="90" x2="415" y2="150" stroke="#8b7355" stroke-width="3" marker-end="url(#arr)"/>
+    <line x1="350" y1="250" x2="350" y2="235" stroke="#8b7355" stroke-width="3" marker-end="url(#arr)"/>
+
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L9,3 z" fill="#8b7355"/>
+      </marker>
+    </defs>
+  </svg>
+</div>
+
+<!-- 工作原理（数据流） -->
+<div class="section">
+  <h2>⚙️ 它怎么工作的？</h2>
+  <svg viewBox="0 0 700 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- 输入 -->
+    <rect x="10" y="70" width="140" height="60" rx="12" fill="#fce4ec" stroke="#c0392b" stroke-width="2.5"/>
+    <text x="80" y="98" text-anchor="middle" font-size="15" font-weight="bold">你做的事</text>
+    <text x="80" y="118" text-anchor="middle" font-size="12" fill="#666">吃/跑/天气</text>
+
+    <line x1="150" y1="100" x2="200" y2="100" stroke="#8b7355" stroke-width="3" marker-end="url(#arr2)"/>
+
+    <!-- MOD -->
+    <rect x="200" y="55" width="150" height="90" rx="12" fill="#fff9c4" stroke="#f39c12" stroke-width="3"/>
+    <text x="275" y="90" text-anchor="middle" font-size="16" font-weight="bold" fill="#f39c12">MOD 算分</text>
+    <text x="275" y="112" text-anchor="middle" font-size="12" fill="#666">算你身体咋样</text>
+    <text x="275" y="130" text-anchor="middle" font-size="11" fill="#999">（不抢游戏饭碗）</text>
+
+    <line x1="350" y1="100" x2="400" y2="100" stroke="#8b7355" stroke-width="3" marker-end="url(#arr2)"/>
+
+    <!-- 结果 -->
+    <rect x="400" y="55" width="130" height="90" rx="12" fill="#e8f5e9" stroke="#27ae60" stroke-width="2.5"/>
+    <text x="465" y="88" text-anchor="middle" font-size="14" font-weight="bold" fill="#27ae60">好结果</text>
+    <text x="465" y="108" text-anchor="middle" font-size="12" fill="#555">变强壮💪</text>
+    <text x="465" y="126" text-anchor="middle" font-size="12" fill="#555">恢复快</text>
+
+    <line x1="400" y1="145" x2="400" y2="180" stroke="#8b7355" stroke-width="2" stroke-dasharray="4,3"/>
+
+    <!-- 坏结果 -->
+    <rect x="550" y="55" width="140" height="90" rx="12" fill="#ffebee" stroke="#e74c3c" stroke-width="2.5"/>
+    <text x="620" y="88" text-anchor="middle" font-size="14" font-weight="bold" fill="#e74c3c">坏结果</text>
+    <text x="620" y="108" text-anchor="middle" font-size="12" fill="#555">生病🤒</text>
+    <text x="620" y="126" text-anchor="middle" font-size="12" fill="#555">中暑/抽筋</text>
+
+    <line x1="530" y1="100" x2="550" y2="100" stroke="#e74c3c" stroke-width="2.5" marker-end="url(#arr3)"/>
+
+    <defs>
+      <marker id="arr2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#8b7355"/>
+      </marker>
+      <marker id="arr3" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+        <path d="M0,0 L0,6 L7,3 z" fill="#e74c3c"/>
+      </marker>
+    </defs>
+  </svg>
+  <p style="text-align:center; color:#7f6b52; margin-top:10px;">
+    💡 MOD 只读游戏的身体数据，然后"乘以一个系数"来微调，<br>
+    不会强行改掉游戏本身的逻辑（就像给车装个仪表盘，不是换发动机）。
+  </p>
+</div>
+
+<!-- 一个小例子 -->
+<div class="section">
+  <h2>📖 举个栗子</h2>
+  <div style="background:#fdf6e3; border-radius:12px; padding:20px; font-size:1.15em;">
+    <p>😰 你天天吃罐头，从不喝水，大太阳下跑了半小时……</p>
+    <p style="margin-top:12px;">
+      → 身体判定：<b style="color:#e74c3c;">维生素C不够 + 脱水 + 过热</b><br>
+      → 结果：<b style="color:#e74c3c;">抽筋 / 中暑 / 牙龈出血（坏血病）</b>
+    </p>
+    <p style="margin-top:12px;">😎 但如果你吃蔬菜水果、喝水、累了就歇着……</p>
+    <p style="margin-top:8px;">
+      → 身体判定：<b style="color:#27ae60;">营养均衡 + 休息充足</b><br>
+      → 结果：<b style="color:#27ae60;">跑步更久，力气变大</b>
+    </p>
+  </div>
+</div>
+
+<!-- 总结 -->
+<div class="conclusion">
+  🎯 它就是让你在僵尸末日里，<br>
+  真的要"好好吃饭、好好休息、注意天气"才能活得好。
+</div>
+
+<div class="more">
+  想要更详细的解释？直接问我就行 👍
+</div>
+
+</body>
+</html>

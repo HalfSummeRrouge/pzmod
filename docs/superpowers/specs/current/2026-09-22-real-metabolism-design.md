@@ -4,7 +4,7 @@
 - 目标版本：Project Zomboid **Build 42**（B42.0.2+，跟随 NeatUI 支持至 42.20.x）
 - 作者：用户 × Trae
 - 状态：总体设计已确认，待用户审阅书面 spec
-- 前序文档：[2026-09-22-zomboid-nutrition-mod-design.md](./2026-09-22-zomboid-nutrition-mod-design.md)（v2，营养子系统；本文档为超集，**取代 v2**，v2 保留作历史记录）
+- 前序文档：[2026-09-22-zomboid-nutrition-mod-design.md](../deprecated/2026-09-22-zomboid-nutrition-mod-design.md)（v2，营养子系统；本文档为超集，**取代 v2**，v2 保留作历史记录）
 
 ---
 
