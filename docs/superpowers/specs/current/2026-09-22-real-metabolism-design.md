@@ -251,18 +251,38 @@ Build 42 原生已提供：四大营养储备池（热量/碳水/蛋白/脂肪�
 
 事件有持续期与冷却，解除条件明确（补水/补盐/离开环境/取暖）；与营养病共用统一惩罚归一化器。
 
-### 6.4 饮品真实药效（Q9 决定，Spike 0 S7 数据验证）
+### 6.4 饮品真实药效（Q9 决定，Spike 0 S7② 数据验证）
 
-数据驱动的饮品属性表（每 100ml/每份）：
+**B42 饮品双路径架构**（S7② 源码验证）：
+
+| 路径 | 物品类型 | 原生触发 | 醉酒 |
+|------|---------|---------|------|
+| **Food 类** | `base:food`（热饮/罐装奶等） | `BodyDamage.Eat` | `if food.isAlcoholic()` → `JustDrankBooze`（仅绷带满足，饮品不触发） |
+| **FluidContainer 类** | `base:normal` + `component FluidContainer`（啤酒/葡萄酒/烈酒/汽水/果汁/水） | `IsoGameCharacter.DrinkFluid` | `if fluid.alcohol > 0` → `JustDrankBoozeFluid(alcohol)` **自动触发** |
+
+**原生字段盘点**：
+- **alcohol**：仅 Fluid 的 `Properties.alcohol`（0.0–1.0），`DrinkFluid` 自动读取并触发 `INTOXICATION`
+- **caffeine**：原生**无此字段**；咖啡/茶靠 Fluid `fatigueChange`（负值=减疲劳）实现提神
+- **sugar**：原生**无此字段**；糖含量体现在 Fluid `Carbohydrates`，由 `DrinkFluid` 自动写入原生营养池
+- **Alcoholic**（物品脚本布尔）：仅绷带用，饮品不用；`alcoholPower` 字段存在但醉酒逻辑不调用
+
+> **关键设计决策**：喝瓶装酒时原生 `DrinkFluid` 已自动调用 `JustDrankBoozeFluid` 触发 `INTOXICATION`，**MOD 不重复触发醉酒**。MOD 的 `alcoholGrams` 仅用于：空热量记账（7 kcal/g）、训练恢复打折、MOD 侧醉酒图标判定。
+
+**数据驱动的饮品属性表（每 100ml）**：
 
 | 字段 | 含义 |
 |---|---|
 | hydrationEfficiency | 补水效率（白水=1.0） |
 | diuretic | 利尿强度（酒精/咖啡因 >0，延缓后净补水可负） |
 | alcoholGrams | 酒精克数（7 kcal/g 空热量，写入原生热量池但无任何微量） |
-| caffeineMg | 咖啡因（mg） |
+| caffeineMg | 咖啡因（mg，MOD 自建计时） |
 | sugarGrams | 糖（快速回碳水，走原生） |
 | category | 白水/茶饮/咖啡/汽水/果汁/啤酒/葡萄酒/烈酒/其他（兜底） |
+
+**查表优先级（B42 Fluid 优先）**：
+1. **Fluid 类型**：`item:getFluidContainer():getPrimaryFluid():getFluidTypeString()` → 查 `FLUID_BEVERAGES`（覆盖所有瓶装/罐装饮品，同一瓶可装不同流体）
+2. **物品 ID**：Food 类饮品（热饮等无 FluidContainer）→ 查 `BEVERAGES`
+3. **未命中**：记录 WARN 日志（fullType/name）+ 探针 `bev_unknown` 事件，返回 nil，调用方跳过。**不做关键词/分类兜底**，避免误判掩盖漏表。
 
 默认系数（首版参考值，进 Config，仿真与实测调优）：
 
@@ -271,14 +291,16 @@ Build 42 原生已提供：四大营养储备池（热量/碳水/蛋白/脂肪�
 | 白水 | 1.0 | 基准 |
 | 汽水 | ~0.85 | 高糖快补碳水；利尿轻微 |
 | 果汁 | ~0.85 | 糖 + 少量维 C（按微量表） |
-| 咖啡/浓茶 | ~0.9 | 咖啡因：短时抗疲劳、利尿、之后疲劳反弹 |
-| 啤酒等低度酒 | ≈0 或微负 | 酒精利尿 + 醉酒 + 空热量 |
-| 葡萄酒/烈酒 | 负 | 净脱水更强；醉酒更重；热量更高 |
+| 咖啡/浓茶 | ~0.9 | 咖啡因：短时抗疲劳、利尿、之后疲劳反弹（MOD 自建计时） |
+| 啤酒等低度酒 | ≈0 或微负 | 酒精利尿 + **原生醉酒** + 空热量 |
+| 葡萄酒/烈酒 | 负 | 净脱水更强；**原生醉酒**更重；热量更高 |
 | 汤/含水食物 | 按含水量 | 同时补宏量与微量 |
 
-**酒精效果**（优先复用 B42 原生醉酒机制，MOD 只做营养侧联动，不重建醉酒）：醉酒期耐力上限与动作协调下降、主观变暖而实际失温风险上升（低温湿身时代谢/失温判定加重）；长期频繁摄入降低训练恢复质量（恢复系数打折）。
+**酒精效果**（复用 B42 原生醉酒机制，MOD 只做营养侧联动）：醉酒期耐力上限与动作协调下降（原生 `INTOXICATION` 驱动）、主观变暖而实际失温风险上升（低温湿身时代谢/失温判定加重）；长期频繁摄入降低训练恢复质量（恢复系数打折）。MOD 不重建醉酒状态机。
 
-未收录饮品走分类兜底系数；其他饮品 mod 自动适用。
+**咖啡因效果**（原生无此字段，MOD 自建）：摄入后 `caffeineUntil` 内疲劳增长减半；到期后 `caffeineReboundUntil` 内疲劳增长×1.5 反弹。
+
+未收录饮品记录 WARN + 探针 `bev_unknown` 事件后跳过记账，不做兜底；其他饮品 mod 需补表方可适用。
 
 ---
 

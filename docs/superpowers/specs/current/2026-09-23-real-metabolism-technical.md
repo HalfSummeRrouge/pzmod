@@ -322,7 +322,8 @@ end
 包装 TimedAction（`__rmHooked` 幂等标记，先保存原链）：
 
 - `ISEatFoodAction.complete/eat`：吃前取 `preWeight=item:getActualWeight()`，原版 Eat 后调 `RM.Core.onEat(item, player, ratio, preWeight)`。
-- `ISDrinkFluidAction.updateEat`：按填充比差值得到本次喝入比例。
+- `ISDrinkFluidAction.start/perform/stop`：**单机 `isClient()=true` 导致 `update()` 内不调 `updateEat()`**，饮水由 Java `DrinkFluid` 异步完成。故在 `start` 记录 `__rmStartRatio` + `__rmCapacity`，在 `perform`/`stop` 按 `(startRatio − curRatio) × capacity × 1000` 计算饮水量 ml。
+- `ISDrinkFromBottle.start/drink/perform`：测试面板"Drink Water"等自动饮水走此路径，`drink` 内 `getStats():Drink(uses)` 后按比例算 ml。
 
 ### 8.2 微量记账与降解折算
 
@@ -464,15 +465,24 @@ Fitness 偏碳水/有氧，Strength 偏蛋白/盈余；零训练零成长；负�
 
 事件带 `untilAge`（持续期）与 `cooldownUntil`（冷却），解除条件明确；与疾病共用统一归一化器。核心体温阈值读 `getCoreTemperature()`（具体阈值进 Config，S8/S2 实测标定）。
 
-### 10.6 饮品药效（`RM_Beverages.lua`）
+### 10.6 饮品药效（`RM_DataLayer.lua` BEVERAGES / `RM_Beverages.lua`）
 
-饮品数据字段（每 100ml/每份）：`hydrationEfficiency / diuretic / alcoholGrams / caffeineMg / sugarGrams / category`；类别兜底，未收录走分类系数。
+**B42 架构（S7② 验证）**：饮品分两类——Food 类（`base:food`，走 `BodyDamage.Eat`）与 FluidContainer 类（`base:normal`，走 `IsoGameCharacter.DrinkFluid`）。酒精含量在 **Fluid 的 `Properties.alcohol`**（0.0–1.0），不在物品字段；原生**无 caffeine/sugar 字段**（糖在 `Carbohydrates`，咖啡/茶提神靠 `fatigueChange`）。
+
+饮品数据字段（每 100ml）：`hydrationEfficiency / diuretic / alcoholGrams / caffeineMg / sugarGrams / category`。
+
+**查表优先级**（`RM.Data.resolveBeverage`）：
+1. **Fluid 类型**：`item:getFluidContainer():getPrimaryFluid():getFluidTypeString()` → `FLUID_BEVERAGES`（覆盖所有瓶装/罐装饮品，同一瓶可装不同流体）
+2. **物品 ID**：Food 类饮品（热饮等无 FluidContainer）→ `BEVERAGES`
+3. **未命中**：`RM.Log.warn` 记录 `fullType`/`name`，同时写探针日志 `bev_unknown` 事件（测试面板可见），返回 `nil`，调用方（`onDrink`）`if not row then return end` 跳过。**不做关键词/分类兜底**，避免误判掩盖漏表。
 
 - **水合**：净补水 = amount × hydrationEfficiency − 延迟利尿项（diuretic）。
-- **酒精**：优先复用原生路径——含原生 alcohol 字段的物品，Eat/DrinkFluid 已自动调 JustDrankBooze(Fluid)，MOD **不重复触发**；自配表中有酒精但原生字段缺失的物品，MOD 可调 `bodyDamage:JustDrankBooze(item, ratio)` / `JustDrankBoozeFluid(alcohol)`，调用前去重标记防双触发。
-  醉酒联动：主观变暖而实际失温风险上升（低温湿身加重）、耐力/协调下降；长期频繁摄入降低训练恢复质量。酒精空热量（7 kcal/g）由原生热量账处理。
-- **咖啡因**（原生无字段，MOD 计时）：`caffeineUntil` 内疲劳恢复/耐力短时加成；`caffeineReboundUntil` 疲劳反弹。通过统一归一化作用，不硬写原生。
-- **糖**：走原生快速碳水（MOD 不重复记宏量）。
+- **酒精**：`DrinkFluid` 已自动调 `BodyDamage.JustDrankBoozeFluid(fluid.alcohol)` 触发 `INTOXICATION`，MOD **不重复触发**（无 `JustDrankBooze` 调用）。MOD 的 `alcoholGrams` 仅用于：空热量记账（7 kcal/g 写入原生热量池）、训练恢复打折、醉酒图标判定。
+  醉酒联动：主观变暖而实际失温风险上升（低温湿身加重）、耐力/协调下降（原生 `INTOXICATION` 驱动）；长期频繁摄入降低训练恢复质量。
+- **咖啡因**（原生无字段，MOD 自建计时）：`caffeineUntil` 内疲劳增长减半；`caffeineReboundUntil` 疲劳增长×1.5 反弹。通过统一归一化作用，不硬写原生。
+- **糖**：Fluid 的 `Carbohydrates` 由 `DrinkFluid` 自动写入原生营养池，MOD 不重复记宏量。
+
+> 注意：物品脚本 `Alcoholic = true` 仅用于绷带（消毒），饮品不用；`alcoholPower` 字段存在但醉酒逻辑不调用，勿依赖。
 
 ---
 
