@@ -30,6 +30,7 @@ function mkItem(fullName, displayName, weightKg, thirstChange, cls)
     local it = {}
     it.__rmClass = cls or "Food"
     function it:getFullName() return fullName end
+    function it:getFullType() return fullName end
     function it:getDisplayName() return displayName end
     function it:getActualWeight() return weightKg end
     function it:getThirstChange() return thirstChange or 0 end

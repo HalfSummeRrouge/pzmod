@@ -83,10 +83,10 @@ check("beverage 精确水=1.0", D.resolveBeverage(water).hydrationEfficiency == 
 local beer = mkItem("Base.BeerBottle", "Beer", 0.35, nil, nil)
 check("beverage 啤酒净脱水 0", D.resolveBeverage(beer).hydrationEfficiency == 0.0)
 local unknownCola = mkItem("Base.SomeBrandCola", "Cola Thing", 0.3, nil, nil)
-check("beverage 关键词 cola→soda 0.85", D.resolveBeverage(unknownCola).hydrationEfficiency == 0.85)
+check("beverage 未收录→nil（不做关键词兜底）", D.resolveBeverage(unknownCola) == nil)
 local mysteryDrink = mkItem("Base.XYZ", "Weird Drink", 0.3, nil, nil)
-check("beverage 未收录 other 0.8", D.resolveBeverage(mysteryDrink).hydrationEfficiency == 0.8)
-local oj = mkItem("Base.OrangeJuice", "Orange Juice", 0.3, nil, nil)
+check("beverage 未收录→nil", D.resolveBeverage(mysteryDrink) == nil)
+local oj = mkItem("Base.CannedFruitBeverageOpen", "Fruit Beverage", 0.3, nil, nil)
 check("beverage 果汁 vitC topup", D.resolveBeverage(oj).microTopUpPer100ml.vitC == 40)
 
 -- ---- Hydration.onDrink / onConsumeFood ----

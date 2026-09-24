@@ -178,17 +178,32 @@ RM.State.neatUIChecked, RM.State.neatUIOk = false, nil
 check("门控: NeatUI 在场通过", UI.checkDependency() == true)
 NeatUI = nil
 
--- _impl 未落地（S7）→ 全组件安全空操作，不抛错
+-- _impl 已落地（S7 完成）→ make 组件返回 ok=true；临时摘除 _impl 验证降级
 local w
 local okAll = true
-w = UI.makePanel({ title = "t" });     okAll = okAll and w.ok == false and w.widget == nil
-w = UI.makeTabs({});                   okAll = okAll and w.ok == false
-w = UI.makeBar({});                    okAll = okAll and w.ok == false
-w = UI.makeList({});                   okAll = okAll and w.ok == false
-w = UI.makeLineChart({});              okAll = okAll and w.ok == false
-w = UI.makeIconHost({ anchor = "x" }); okAll = okAll and w.ok == false
-check("适配: 未接 _impl 全部安全降级", okAll)
-check("适配: drawText 返回 false", UI.drawText(nil, "x", 0, 0, nil) == false)
+w = UI.makePanel({ title = "t" });     okAll = okAll and w.ok == true and w.widget ~= nil
+w = UI.makeTabs({ parent = w.widget, tabs = {} }); okAll = okAll and w.ok == true
+w = UI.makeBar({ parent = nil });      okAll = okAll and w.ok == true
+w = UI.makeList({});                   okAll = okAll and w.ok == true
+w = UI.makeLineChart({});              okAll = okAll and w.ok == true
+w = UI.makeIconHost({ anchor = "x", icons = { {text="H", colorKey="good"} } }); okAll = okAll and w.ok == true
+check("适配: S7 make 组件全部 ok=true", okAll)
+check("适配: drawText 返回 true", UI.drawText(nil, "x", 0, 0, nil) == true)
+
+-- 降级路径：摘除 _impl 后全部安全返回 ok=false
+local savedImpl = RM.UI._panelImpl
+local savedIcons = RM.UI._iconsImpl
+RM.UI._panelImpl, RM.UI._iconsImpl = nil, nil
+local degradeOk = true
+w = UI.makePanel({ title = "t" });     degradeOk = degradeOk and w.ok == false and w.widget == nil
+w = UI.makeTabs({});                   degradeOk = degradeOk and w.ok == false
+w = UI.makeBar({});                    degradeOk = degradeOk and w.ok == false
+w = UI.makeList({});                   degradeOk = degradeOk and w.ok == false
+w = UI.makeLineChart({});              degradeOk = degradeOk and w.ok == false
+w = UI.makeIconHost({ anchor = "x" }); degradeOk = degradeOk and w.ok == false
+check("适配: 摘除 _impl 全部安全降级", degradeOk)
+check("适配: 摘除 _impl drawText 返回 false", UI.drawText(nil, "x", 0, 0, nil) == false)
+RM.UI._panelImpl, RM.UI._iconsImpl = savedImpl, savedIcons
 
 -- 端到端安全：Panel.refresh / Icons.update 在无渲染实现下不抛错
 local okEnd, errEnd = pcall(function()

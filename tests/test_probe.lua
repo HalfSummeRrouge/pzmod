@@ -1,13 +1,13 @@
 -- Probe：CSV 行格式 / 事件覆盖 / 节流 / 文件 API 缺失降级 / 集成挂点
 local P = RM.Probe
 
--- ---- 桩：getFileWriter 捕获写入行（两代签名之一） ----
+-- ---- 桩：getFileWriter 捕获写入行（三参数签名：path, createIfNull, append） ----
 local lines = {}
 local fileAPI = true
 local function installFileStub()
     lines = {}
-    getFileWriter = function(path, append)
-        assert(path == "RealMetabolismProbe.csv" and append == true, "路径/追加模式")
+    getFileWriter = function(path, createIfNull, append)
+        assert(path == "RealMetabolismProbe.log" and createIfNull == true and append == true, "路径/创建/追加模式")
         local w = {}
         function w:write(s) lines[#lines + 1] = string.gsub(s, "\n$", "") end
         function w:close() w.closed = true end
@@ -27,7 +27,7 @@ end
 installFileStub()
 P.key(46, true)
 check("probe: key 事件写入", #lines == 1)
-check("probe: 行格式 worldH,type,kv", string.match(lines[1], "^[%d%.]+,key,code=46%.00;open=1%.00$") ~= nil)
+check("probe: 行格式 worldH,type,kv", string.match(lines[1], "^[%d%.]+,key,key=N;code=46%.00;open=1%.00$") ~= nil)
 
 P.session("attach")
 check("probe: session 行含 kind", string.match(lines[2], "^[%d%.]+,session,kind=attach$") ~= nil)
