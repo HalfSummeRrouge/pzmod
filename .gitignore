@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build artifacts / archives
+*.zip
+neatui_extracted/
+
+# Logs
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*~
+
+# IDE
+.vscode/
+.idea/
