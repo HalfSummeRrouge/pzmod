@@ -237,8 +237,10 @@ local FALLBACK_ROW = M(300,250,40,1,50,5,0.5,0.2)
 function RM.Data.lookupMicro(item)
     local name = ""
     if item then
-        local ok, n = pcall(function() return item:getFullName() end)
-        if ok and n then name = tostring(n) end
+        -- B42: getFullName() 在 Food 上不存在且 Kahlua 无法 pcall 捕获，
+        -- 改用肯定存在的 getFullType()（如 "Base.Apple"，与 FOODS 表键一致）
+        local ok, ft = pcall(function() return item:getFullType() end)
+        if ok and ft then name = tostring(ft) end
     end
     local row = FOODS[name]
     if row then return row end
@@ -254,64 +256,151 @@ function RM.Data.lookupMicro(item)
     return FALLBACK_ROW
 end
 
--- ---------------- 饮品表（每 100ml；§10.6 字段，M1 用 hydrationEfficiency，其余 M2 接入） ----------------
+-- ---------------- 饮品表（每 100ml；§10.6 字段） ----------------
+-- B42 架构：酒精饮品为 base:normal + FluidContainer，酒精在 Fluid.Properties.alcohol
+-- 原生 DrinkFluid 已自动触发 JustDrankBoozeFluid，MOD 不重复触发醉酒
+-- MOD 表字段：hydrationEfficiency / diuretic / alcoholGrams(空热量7kcal/g) / caffeineMg / sugarGrams / category
 local function B(efficiency, diuretic, alcohol, caffeine, sugar, category, microTopUp)
     return { hydrationEfficiency = efficiency, diuretic = diuretic,
              alcoholGrams = alcohol, caffeineMg = caffeine, sugarGrams = sugar,
              category = category, microTopUpPer100ml = microTopUp }
 end
 
+-- 按 Fluid 类型查表（FluidContainer 饮品：啤酒/葡萄酒/烈酒/汽水/果汁/水/咖啡/茶）
+-- 键名 = Fluid.getFluidTypeString() 返回值（fluids.txt / fluids_Beverages.txt / fluids_Alcoholic.txt 中的 fluid 名）
+local FLUID_BEVERAGES = {
+    -- 水
+    ["Water"]            = B(1.0, 0.0, 0, 0, 0, "water", nil),
+    ["CarbonatedWater"]  = B(1.0, 0.0, 0, 0, 0, "water", nil),
+    -- 奶
+    ["CowMilk"]          = B(0.85, 0.0, 0, 0, 5, "milk", { calcium = 125, vitD = 1.3, vitA = 46 }),
+    ["AnimalMilk"]       = B(0.85, 0.0, 0, 0, 5, "milk", { calcium = 125, vitD = 1.3, vitA = 46 }),
+    ["SheepMilk"]        = B(0.85, 0.0, 0, 0, 5, "milk", { calcium = 195, vitD = 1.3, vitA = 83 }),
+    ["MilkChocolate"]    = B(0.85, 0.0, 0, 0, 11, "milk", { calcium = 125 }),
+    -- 汽水
+    ["Cola"]             = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["ColaDiet"]         = B(0.85, 0.1, 0, 8, 0, "soda", nil),
+    ["GingerAle"]        = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaPop"]          = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaLime"]         = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaGrape"]        = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaBlueberry"]    = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaPineapple"]    = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaStrewberry"]   = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    ["SodaBubblegum"]    = B(0.85, 0.1, 0, 8, 10.4, "soda", nil),
+    -- 咖啡/茶
+    ["Coffee"]           = B(0.9, 0.15, 0, 95, 0, "coffee", nil),
+    ["Tea"]              = B(0.92, 0.1, 0, 40, 0, "tea", nil),
+    ["Honey"]            = B(0.8, 0.0, 0, 0, 0, "other", nil),
+    -- 果汁
+    ["JuiceApple"]       = B(0.85, 0.0, 0, 0, 12, "juice", { vitC = 42, potassium = 100 }),
+    ["JuiceOrange"]      = B(0.85, 0.0, 0, 0, 12, "juice", { vitC = 40, potassium = 200, vitA = 8 }),
+    ["JuiceGrape"]       = B(0.85, 0.0, 0, 0, 12, "juice", { vitC = 40 }),
+    ["JuiceCranberry"]   = B(0.85, 0.0, 0, 0, 10, "juice", { vitC = 40 }),
+    ["JuiceFruitpunch"]  = B(0.85, 0.0, 0, 0, 10, "juice", { vitC = 40 }),
+    ["JuiceLemon"]       = B(0.85, 0.0, 0, 0, 12, "juice", { vitC = 40 }),
+    ["JuiceTomato"]      = B(0.85, 0.0, 0, 0, 13, "juice", { vitC = 40, potassium = 200 }),
+    ["SpiffoJuice"]      = B(0.85, 0.0, 0, 0, 16, "juice", { vitC = 40 }),
+    ["SimpleSyrup"]      = B(0.8, 0.0, 0, 0, 0, "other", nil),
+    -- 酒精流体（原生 DrankBoozeFluid 已自动醉酒，MOD 仅记空热量+训练恢复）
+    ["Beer"]             = B(0.0, 1.2, 3.9, 0, 3.6, "beer", nil),
+    ["Cider"]            = B(0.0, 1.0, 3.2, 0, 0.8, "beer", nil),
+    ["Mead"]             = B(0.0, 1.0, 4.7, 0, 0, "beer", nil),
+    ["Wine"]             = B(-0.2, 1.5, 9.5, 0, 0, "wine", nil),
+    ["Champagne"]        = B(-0.2, 1.5, 9.5, 0, 2.5, "wine", nil),
+    ["Sherry"]           = B(-0.2, 1.5, 11.8, 0, 6.9, "wine", nil),
+    ["Vermouth"]         = B(-0.2, 1.5, 11.8, 0, 3.3, "wine", nil),
+    ["Port"]             = B(-0.2, 1.5, 12.6, 0, 12.9, "wine", nil),
+    ["CoffeeLiqueur"]    = B(-0.3, 1.6, 15.8, 30, 2.1, "spirits", nil),
+    ["Curacao"]          = B(-0.4, 1.8, 31.6, 0, 23.6, "spirits", nil),
+    ["Brandy"]           = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Gin"]              = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Rum"]              = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Scotch"]           = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Tequila"]          = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Vodka"]            = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Whiskey"]          = B(-0.4, 1.8, 31.6, 0, 0, "spirits", nil),
+    ["Grenadine"]        = B(0.8, 0.0, 0, 0, 67, "other", nil),
+}
+
+-- 按物品 ID 查表（Food 类饮品及无 Fluid 的容器，作为 Fluid 查表的补充）
 local BEVERAGES = {
-    ["Base.WaterBottle"]     = B(1.0, 0.0, 0, 0, 0, "water", nil),
-    ["Base.ColaBottle"]      = B(0.85, 0.1, 0, 8, 10.6, "soda", nil),
-    ["Base.OrangeSoda"]      = B(0.85, 0.1, 0, 8, 10.6, "soda", nil),
-    ["Base.LemonSoda"]       = B(0.85, 0.1, 0, 8, 10.6, "soda", nil),
-    ["Base.OrangeJuice"]     = B(0.85, 0.0, 0, 0, 10, "juice", { vitC = 40, potassium = 200, vitA = 8 }),
-    ["Base.AppleJuice"]      = B(0.85, 0.0, 0, 0, 11, "juice", { vitC = 42, potassium = 100 }),
-    ["Base.Milk"]            = B(0.85, 0.0, 0, 0, 5, "milk", { calcium = 125, vitD = 1.3, vitA = 46 }),
-    ["Base.EvaporatedMilk"]  = B(0.85, 0.0, 0, 0, 10, "milk", { calcium = 261, vitD = 0.5, vitA = 74 }),
-    ["Base.BeerBottle"]      = B(0.0, 1.2, 3.6, 0, 3, "beer", nil),   -- 利尿净脱水（设计 §10.6）
-    ["Base.BeerCan"]         = B(0.0, 1.2, 3.6, 0, 3, "beer", nil),
-    ["Base.WineBottle"]      = B(-0.2, 1.5, 10.3, 0, 3, "wine", nil),
-    ["Base.WhiskeyBottle"]   = B(-0.4, 1.8, 32, 0, 0, "spirits", nil),
-    ["Base.VodkaBottle"]     = B(-0.4, 1.8, 32, 0, 0, "spirits", nil),
-    ["Base.RumBottle"]       = B(-0.4, 1.8, 32, 0, 0, "spirits", nil),
+    -- 直接引用 FLUID_BEVERAGES，避免数据重复
+    ["Base.WaterBottle"]             = FLUID_BEVERAGES["Water"],
+    ["Base.BeerBottle"]              = FLUID_BEVERAGES["Beer"],
+    ["Base.BeerCan"]                 = FLUID_BEVERAGES["Beer"],
+    ["Base.BeerImported"]            = FLUID_BEVERAGES["Beer"],
+    ["Base.Wine"]                    = FLUID_BEVERAGES["Wine"],
+    ["Base.Wine2"]                   = FLUID_BEVERAGES["Wine"],
+    ["Base.WineOpen"]                = FLUID_BEVERAGES["Wine"],
+    ["Base.Wine2Open"]               = FLUID_BEVERAGES["Wine"],
+    ["Base.WineAged"]                = FLUID_BEVERAGES["Wine"],
+    ["Base.WineScrewtop"]            = FLUID_BEVERAGES["Wine"],
+    ["Base.WineWhite_Boxed"]         = FLUID_BEVERAGES["Wine"],
+    ["Base.WineRed_Boxed"]           = FLUID_BEVERAGES["Wine"],
+    ["Base.Whiskey"]                 = FLUID_BEVERAGES["Whiskey"],
+    ["Base.Vodka"]                   = FLUID_BEVERAGES["Vodka"],
+    ["Base.Rum"]                     = FLUID_BEVERAGES["Rum"],
+    ["Base.Gin"]                     = FLUID_BEVERAGES["Gin"],
+    ["Base.Tequila"]                 = FLUID_BEVERAGES["Tequila"],
+    ["Base.Champagne"]               = FLUID_BEVERAGES["Champagne"],
+    ["Base.Cider"]                   = FLUID_BEVERAGES["Cider"],
+    ["Base.CannedMilkOpen"]          = FLUID_BEVERAGES["CowMilk"],
+    ["Base.CannedFruitBeverageOpen"] = FLUID_BEVERAGES["JuiceFruitpunch"],
+    -- Food 类热饮（food.txt，无 FluidContainer，走 Eat 路径）
+    ["Base.HotDrink"]                = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkTea"]             = B(0.92, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkTeaCeramic"]      = B(0.92, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkClay"]            = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkRed"]             = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkSpiffo"]          = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkWhite"]           = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkMetal"]           = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkCopper"]          = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkGold"]            = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkSilver"]          = B(0.9, 0.1, 0, 40, 0, "tea", nil),
+    ["Base.HotDrinkTumbler"]         = B(0.9, 0.1, 0, 40, 0, "tea", nil),
 }
 
--- 类别兜底系数（§10.6：未收录走分类）
-local CATEGORY_EFF = {
-    water = 1.0, soda = 0.85, juice = 0.85, coffee = 0.9, tea = 0.92,
-    milk = 0.85, beer = 0.0, wine = -0.2, spirits = -0.4, other = 0.8,
-}
-local BEVERAGE_KEYWORDS = {
-    { "water", "water" }, { "cola", "soda" }, { "soda", "soda" },
-    { "juice", "juice" }, { "coffee", "coffee" }, { "tea", "tea" },
-    { "milk", "milk" }, { "beer", "beer" }, { "wine", "wine" },
-    { "whiskey", "spirits" }, { "vodka", "spirits" }, { "rum", "spirits" },
-}
-
--- 返回 { hydrationEfficiency, category, microTopUpPer100ml }；未收录走类别系数
+-- 两级查找：Fluid 类型 → 物品 ID；未命中返回 nil 并记录 WARN（不做关键词兜底，避免误判掩盖漏表）
 function RM.Data.resolveBeverage(item)
-    local name = ""
-    if item then
-        local ok, n = pcall(function() return item:getFullName() end)
-        if ok and n then name = tostring(n) end
-        local row = BEVERAGES[name]
-        if row then return row end
-    end
-    local dn = ""
-    local ok2, d = pcall(function() return item and item:getDisplayName() end)
-    if ok2 and d then dn = string.lower(tostring(d)) end
-    local cat = "other"
-    if dn ~= "" then
-        for i = 1, #BEVERAGE_KEYWORDS do
-            if string.find(dn, BEVERAGE_KEYWORDS[i][1], 1, true) then
-                cat = BEVERAGE_KEYWORDS[i][2]
-                break
+    if not item then return nil end
+
+    -- 1. FluidContainer 类饮品：按流体类型查表（B42 "喝什么"由 Fluid 决定）
+    local okFc, fc = pcall(function() return item:getFluidContainer() end)
+    if okFc and fc ~= nil then
+        local okPf, pf = pcall(function() return fc:getPrimaryFluid() end)
+        if okPf and pf ~= nil then
+            local okName, fname = pcall(function() return pf:getFluidTypeString() end)
+            if okName and fname then
+                local row = FLUID_BEVERAGES[tostring(fname)]
+                if row then return row end
             end
         end
     end
-    return B(CATEGORY_EFF[cat] or CATEGORY_EFF.other, 0, 0, 0, 0, cat, nil)
+
+    -- 2. 按物品 ID 查表（Food 类饮品/无流体容器）
+    local ok, ft = pcall(function() return item:getFullType() end)
+    if ok and ft then
+        local row = BEVERAGES[tostring(ft)]
+        if row then return row end
+    end
+
+    -- 未命中：记录告警，返回 nil（调用方需防御）
+    local dn = ""
+    local ok2, d = pcall(function() return item:getDisplayName() end)
+    if ok2 and d then dn = tostring(d) end
+    local ftStr = ""
+    if ok and ft then ftStr = tostring(ft) end
+    RM.Log.warn("resolveBeverage: 未收录饮品 fullType=" .. ftStr .. " name=" .. dn .. "（请补 FLUID_BEVERAGES 或 BEVERAGES）")
+    -- 同步写入探针日志，便于在测试面板直接观察
+    if RM.Probe and RM.Probe._write then
+        pcall(RM.Probe._write, "bev_unknown", {
+            "fullType", ftStr,
+            "name", dn,
+        })
+    end
+    return nil
 end
 
 -- ---------------- 每日累计器（写 modData，进食/饮水即时） ----------------

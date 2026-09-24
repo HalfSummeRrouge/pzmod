@@ -52,12 +52,21 @@ RM.Config = {
 
     -- ---------------- 能量反馈（设计 §9.2）----------------
     energy = {
-        carbSaturation = 300,     -- 原生碳水池视为"满"的参考值 TODO(S2): 实测池范围后标定
+        carbSaturation = 1000,    -- 原生碳水池"满"参考值 = 池上限（spec §11: carbs max=1000）
         lowBelow = 0.30,          -- 反馈低于此值 → 恢复×0.85 / 上限×0.90
         frozenBelow = 0.05,       -- 低于此值 → 恢复冻结
         lowRecovery = 0.85,
         lowMax = 0.90,
         frozenRecovery = 0.0,
+    },
+
+    -- ---------------- 原生营养池上下限（spec §11，官方 bug 报告确认）----------------
+    -- 只读参考：cal 无下限（保持原版 -500），carbs/lipids/protein 下限 -500
+    poolCaps = {
+        calories     = { max = 3700, min = nil },
+        carbohydrates = { max = 1000, min = -500 },
+        lipids       = { max = 1000, min = -500 },
+        proteins     = { max = 1000, min = -500 },
     },
 
     -- ---------------- 燃料底物（设计 §9.1）----------------
@@ -72,7 +81,7 @@ RM.Config = {
         highIntensityMin = 0.55,     -- I ≥ 此值 → 高强度曲线（跑步及以上）
         lowIntensityMax = 0.30,       -- I ≤ 此值 → 低强度曲线（步行及以下）
         durationShiftPerMin = 0.002, -- 低强度随持续时间 carbs→fat 漂移
-        fastedCarbsBelow = -200,     -- 原生碳水池低于此值 → 空腹 TODO(S2): 实测标定
+        fastedCarbsBelow = -200,     -- 原生碳水池低于此值 → 空腹（池下限 -500，取中段）
         mix = {
             high    = { carbs = 0.75, fat = 0.25, protein = 0.00 },
             mid     = { carbs = 0.50, fat = 0.50, protein = 0.00 },
@@ -98,13 +107,13 @@ RM.Config = {
 
     -- ---------------- UI ----------------
     ui = {
-        toggleKeyName = "KEY_N",   -- 面板开关键（OnKeyKeepPressed 解析；ModOptions 可改键 TODO(S2)）
+        toggleKeyName = "KEY_F10",   -- 面板开关键（A-Z/F1-F6 全占用，F7 不响应，F10 实测可用）
         refreshMs = 250,            -- 面板可见时最小刷新间隔
     },
 
     -- ---------------- 实测探针（S1/S2 上机采集，见 livecheck 文档；M4 发布前移除）----------------
     probe = {
-        enabled = true,            -- 自动采集到 Zomboid 用户目录 RealMetabolismProbe.csv
+        enabled = true,            -- 自动采集到 Zomboid/Lua/RealMetabolismProbe.log
         sampleEveryGameSec = 60,   -- 原生池/体温 采样间隔（游戏秒）
     },
 }

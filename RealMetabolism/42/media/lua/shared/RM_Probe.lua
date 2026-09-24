@@ -8,13 +8,13 @@
 --            sample / clock / everydays / key（全部安全空转）
 -- 依赖     : RM_Config / RM_DataLayer（shared）；由 RM_Core /
 --            RM_Hydration（server）与 RM_Panel（client）挂点调用
--- 输出     : Zomboid 用户目录 RealMetabolismProbe.csv（追加，勿手改）
+-- 输出     : Zomboid 用户目录/Lua/RealMetabolismProbe.log（CSV 格式追加，勿手改）
 -- 行格式   : worldHours,事件类型,键=值;键=值...
 -- ============================================================
 RM = RM or {}
 RM.Probe = {}
 
-local FILE = "RealMetabolismProbe.csv"
+local FILE = "RealMetabolismProbe.log"
 
 -- 运行时状态（非持久化）
 RM.Probe._fileWarned = false    -- 文件 API 不可用只告警一次
@@ -34,7 +34,8 @@ end
 -- 只读辅助（全部 pcall 防御，缺失记 na）
 function RM.Probe._itemName(item)
     if not item then return "na" end
-    local ok, n = pcall(function() return item:getFullName() end)
+    -- B42: getFullName() 在 Food 上不存在且 Kahlua 无法 pcall 捕获，改用 getFullType()
+    local ok, n = pcall(function() return item:getFullType() end)
     if ok and n then return tostring(n) end
     return "na"
 end
@@ -48,7 +49,9 @@ end
 
 function RM.Probe._coreTemp(player)
     if not player then return "na" end
-    local ok, t = pcall(function() return player:getCoreTemperature() end)
+    local ok, t = pcall(function()
+        return player:getBodyDamage():getThermoregulator():getCoreTemperature()
+    end)
     if ok and type(t) == "number" then return string.format("%.2f", t) end
     return "na"
 end
@@ -76,14 +79,11 @@ function RM.Probe._write(evType, kv)
         local line = h .. "," .. evType
         if #parts > 0 then line = line .. "," .. table.concat(parts, ";") end
 
-        -- 文件追加：Kahlua 全局 getFileWriter；兼容两代参数签名
+        -- 文件追加：Kahlua 全局 getFileWriter（三参数：path, createIfNull, append）
         local w
-        local okW, ww = pcall(function() return getFileWriter(FILE, true) end)
+        local okW, ww = pcall(function() return getFileWriter(FILE, true, true) end)
         if okW and ww then
             w = ww
-        else
-            local okW2, ww2 = pcall(function() return getFileWriter(FILE, true, false) end)
-            if okW2 and ww2 then w = ww2 end
         end
         if w then
             w:write(line .. "\n")
@@ -96,6 +96,13 @@ function RM.Probe._write(evType, kv)
             RM.Log.info("[probe] " .. line)
         end
         if RM.Config.debug then RM.Log.debug("[probe] " .. line) end
+
+        -- 推送到测试面板内存缓存（client 端，不存在则忽略）
+        pcall(function()
+            if RM.TestPanel and RM.TestPanel.pushLog then
+                RM.TestPanel.pushLog(line)
+            end
+        end)
     end)
     if not ok then RM.Log.warn("Probe 写入异常: " .. tostring(err)) end
 end
@@ -195,6 +202,105 @@ function RM.Probe.everydays(player, day)
 end
 
 -- 面板按键（S2-7 单次触发验证）
+-- 尝试将 keycode 映射为键名（A-Z/数字/常用键），映射失败则保留数字
+local _keyNameCache = nil
+local function _keyName(code)
+    if type(code) ~= "number" then return tostring(code) end
+    if not _keyNameCache then
+        _keyNameCache = {}
+        if Keyboard then
+            for k, v in pairs(Keyboard) do
+                if type(v) == "number" and type(k) == "string" and k:sub(1,4) == "KEY_" then
+                    _keyNameCache[v] = k:sub(5)  -- KEY_N -> N
+                end
+            end
+        end
+    end
+    return _keyNameCache[code] or tostring(code)
+end
+
 function RM.Probe.key(code, openAfter)
-    RM.Probe._write("key", { "code", num(code), "open", openAfter and 1 or 0 })
+    RM.Probe._write("key", { "key", _keyName(code), "code", num(code), "open", openAfter and 1 or 0 })
+end
+
+-- ---------------- S7② 饮品数据验证 ----------------
+-- 候选饮品 ID（覆盖水/汽水/果汁/奶/啤酒/葡萄酒/烈酒/咖啡/茶）
+local _CANDIDATE_BEVERAGES = {
+    "Base.WaterBottle", "Base.WaterBottleFull",
+    "Base.ColaBottle", "Base.OrangeSoda", "Base.LemonSoda",
+    "Base.OrangeJuice", "Base.AppleJuice", "Base.GrapeJuice",
+    "Base.Milk", "Base.EvaporatedMilk", "Base.CondensedMilk",
+    "Base.BeerBottle", "Base.BeerCan", "Base.BeerCanOpen",
+    "Base.WineBottle", "Base.RedWine", "Base.WhiteWine",
+    "Base.WhiskeyBottle", "Base.VodkaBottle", "Base.RumBottle", "Base.GinBottle", "Base.TequilaBottle",
+    "Base.Coffee", "Base.CoffeeBlack", "Base.CoffeeWithSugar",
+    "Base.Tea", "Base.TeaBlack", "Base.GreenTea",
+    "Base.HotCocoa", "Base.HotChocolate",
+    "Base.Cider", "Base.Mead",
+}
+
+-- 批量检测：物品是否存在 + 原生字段（酒精/咖啡因/类别/营养）
+function RM.Probe.dumpBeverages(player)
+    if not enabled() then return end
+
+    -- 1) 原生醉酒 API 检测
+    local bd = player and player:getBodyDamage()
+    local drunkGet, drunkSet = "na", "na"
+    if bd then
+        local okG, g = pcall(function() return bd.getDrunkenness and bd:getDrunkenness() or -1 end)
+        drunkGet = okG and num(g) or "missing"
+        local okS = pcall(function() return bd.setDrunkenness ~= nil end)
+        drunkSet = okS and "yes" or "missing"
+    end
+    RM.Probe._write("bev_api", {
+        "getDrunkenness", drunkGet, "setDrunkenness", drunkSet,
+    })
+
+    -- 2) 逐个饮品检测
+    local getItem = getItemType
+    if not getItem then
+        RM.Probe._write("bev_err", { "reason", "getItemType missing" })
+        return
+    end
+    for i, id in ipairs(_CANDIDATE_BEVERAGES) do
+        local ok, item = pcall(function() return getItem(id) end)
+        if not ok or not item then
+            RM.Probe._write("bev_item", { "id", id, "exists", 0 })
+        else
+            -- 读取所有可能的原生字段（全部 pcall 防御）
+            local function g(name)
+                local okv, v = pcall(function()
+                    local fn = item[name]
+                    if fn and type(fn) == "function" then return fn(item) end
+                    return nil
+                end)
+                return okv and v or nil
+            end
+            local alc = g("getAlcoholicPower")
+            local isDrink = g("isDrink")
+            local isBeer = g("isBeer")
+            local isWine = g("isWine")
+            local isSpirits = g("isSpirits")
+            local thirst = g("getThirstChange")
+            local hunger = g("getHungerChange")
+            local cal = g("getCalories")
+            local carbs = g("getCarbohydrates")
+            local lipids = g("getLipids")
+            local proteins = g("getProteins")
+            local weight = g("getWeight")
+            local cat = g("getFoodType")
+            RM.Probe._write("bev_item", {
+                "id", id, "exists", 1,
+                "alcohol", num(alc),
+                "isDrink", isDrink and 1 or 0,
+                "isBeer", isBeer and 1 or 0,
+                "isWine", isWine and 1 or 0,
+                "isSpirits", isSpirits and 1 or 0,
+                "thirst", num(thirst), "hunger", num(hunger),
+                "cal", num(cal), "carbs", num(carbs), "lipids", num(lipids), "proteins", num(proteins),
+                "weight", num(weight), "type", tostring(cat or "na"),
+            })
+        end
+    end
+    RM.Probe._write("bev_done", { "count", #_CANDIDATE_BEVERAGES })
 end

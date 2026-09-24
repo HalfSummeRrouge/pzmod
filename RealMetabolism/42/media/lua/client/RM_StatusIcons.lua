@@ -40,11 +40,38 @@ function RM.UI.Icons.buildIconStates(live)
     return states
 end
 
--- 刷新（由 Panel.refresh / 秒级路径调用）：全部经适配层，不直接渲染
+-- 刷新（由 Panel.refresh / 秒级路径调用）：全部经适配层
 function RM.UI.Icons.update(md)
     local states = RM.UI.Icons.buildIconStates(RM.State.live)
+    -- 清理旧图标宿主
+    if RM.UI.Icons._host then
+        pcall(function() RM.UI.Icons._host:removeFromUIManager() end)
+        RM.UI.Icons._host = nil
+    end
     if #states == 0 then return end
-    local host = RM.UI.makeIconHost({ anchor = "bottomRight", theme = RM.Theme })
-    if not host.ok then return end
-    -- 图标绘制在 _iconsImpl 落地后接入（S7 + 美术资产）
+
+    -- 转为 makeIconHost 的 icons 格式
+    local icons = {}
+    for i, s in ipairs(states) do
+        icons[#icons + 1] = {
+            id = s.id,
+            text = s.text,
+            colorKey = s.colorKey,
+        }
+    end
+
+    local host = RM.UI.makeIconHost({ anchor = "bottomRight", icons = icons })
+    if not host.ok or not host.widget then return end
+
+    -- 定位到屏幕右下角
+    local sw, sh = 1920, 1080
+    pcall(function()
+        sw = getCore():getScreenWidth()
+        sh = getCore():getScreenHeight()
+    end)
+    host.widget:setAnchor(sw, sh)
+    host.widget:setVisible(true)
+    host.widget:addToUIManager()
+    host.widget:setAlwaysOnTop(true)
+    RM.UI.Icons._host = host.widget
 end

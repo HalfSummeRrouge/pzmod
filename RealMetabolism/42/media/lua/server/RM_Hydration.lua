@@ -32,6 +32,7 @@ end
 function RM.Hydration.onDrink(player, ml, item)
     if not player or not ml or ml <= 0 then return end
     local row = RM.Data.resolveBeverage(item)
+    if not row then return end   -- 未收录饮品已在 resolveBeverage 记录 WARN，此处跳过
     RM.Data.addWater(player, ml, row.hydrationEfficiency)
     -- 果汁/牛奶等微量 topup（每 100ml 行）
     if row.microTopUpPer100ml then

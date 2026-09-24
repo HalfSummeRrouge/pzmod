@@ -17,8 +17,8 @@ function RM.Fuel._posture(player)
     local ok, res = pcall(function()
         if player:isSprinting() then return "sprint" end
         if player:isRunning() then return "run" end
-        if player:isSneaking() and player:isMoving() then return "sneak" end
-        if player:isMoving() then return "walk" end
+        if player:isSneaking() and player:isPlayerMoving() then return "sneak" end
+        if player:isPlayerMoving() then return "walk" end
         return "rest"
     end)
     if ok then return res end
